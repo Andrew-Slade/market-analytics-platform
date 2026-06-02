@@ -34,7 +34,7 @@ class GenericIngestor:
             raise Exception(f"Invalid ticker {self.symbol}: {e}")
 
     def __price_update_handler(self, message):
-        self.logger.debug(f"Message: {message}")
+        self.logger.info(f"Message: {message}")
         #TODO write to kafka
 
 def handle_sigterm(signum, frame):

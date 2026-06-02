@@ -39,15 +39,7 @@ class Subscribe:
             raise Exception(t)
 
     def __del__(self):
-        try:
-            for i in self.active_subscriptions:
-                self.active_subscriptions[i].terminate()
-                self.active_subscriptions[i].wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.logger.warning(f"Process {i} refusing to close, force killing")
-            self.active_subscriptions[i].kill()
-            self.active_subscriptions[i].wait()
-
+        self.__kill_subscription(list(self.active_subscriptions.keys()))
 
     def run(self):
         last = datetime.now() - timedelta(seconds = self.polling_period)
@@ -71,30 +63,37 @@ class Subscribe:
             match diff:
                 case -1: #more new subscriptions than current
                     self.logger.debug("New subscriptions detected, spinning up subscriptions...")
-                    for i in self.config: #increase subscriptions
-                        if i not in self.active_subscriptions:
-                            self.active_subscriptions[i] = subprocess.Popen(["python", "ingestion/generic.py", i])
+                    self.__spin_up_subscription(self.config)
                 case 1: #more current subscriptions than new
                     self.logger.debug("Fewer subscriptions detected, reducing...")
                     to_remove = [ i for i in self.active_subscriptions if i not in self.config]
-                    for i in to_remove:
-                        try:
-                            self.active_subscriptions[i].terminate()
-                            self.active_subscriptions[i].wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            self.logger.warning(f"Process {i} refusing to close, force killing")
-                            self.active_subscriptions[i].kill()
-                            self.active_subscriptions[i].wait()
-                        del self.active_subscriptions[i]
+                    self.__kill_subscription(to_remove)
                 case _: #no change to size
-                    to_remove = [ i for i in self.active_subscriptions if i not in self.config]
-                    to_add = [ i for i in self.config if i not in self.active_subscriptions]
-                    if len(to_add) > 0:
-                        pass #TODO still should check that we have the correct subscriptions up, and they are running
-                    elif len(to_remove) > 0:
-                        pass #TODO still should check that we have the correct subscriptions up, and they are running
+                    #we still need to check all the subscriptions are correct
+                    if set(self.active_subscriptions.keys()) != set(self.config): #only act on list changes
+                        to_remove = [ i for i in self.active_subscriptions if i not in self.config]
+                        to_add = [ i for i in self.config if i not in self.active_subscriptions]
+                        #two ifs, not if else, as we probably could see both
+                        if len(to_add) > 0:
+                            self.__spin_up_subscription(to_add)
+                        if len(to_remove) > 0:
+                            self.__kill_subscription(to_remove)
             
-
+    def __spin_up_subscription(self, add: list[str]):
+        for i in add:
+            if i not in self.active_subscriptions:
+                self.active_subscriptions[i] = subprocess.Popen(["python", "ingestion/generic.py", i])
+    
+    def __kill_subscription(self, remove: list[str]):
+        for i in remove:
+            try:
+                self.active_subscriptions[i].terminate()
+                self.active_subscriptions[i].wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.logger.warning(f"Process {i} refusing to close, force killing")
+                self.active_subscriptions[i].kill()
+                self.active_subscriptions[i].wait()
+            del self.active_subscriptions[i]
 def setup_logging(verbose: bool) -> logging.Logger:
     try:
         print("Reading config")
