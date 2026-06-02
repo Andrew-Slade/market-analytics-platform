@@ -1,0 +1,1 @@
+format: "%(levelname)s:%(name)s:%(message)s"
