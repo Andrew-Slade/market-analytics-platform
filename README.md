@@ -1,27 +1,58 @@
 # Market Analytics Platform
 
-## Setup
-market-analytics-platform/
+## Why?
+
+This platform demonstrates an end-to-end analytics workflow that runs seamlessly on a local developer laptop or in the cloud. We replace heavy, JVM-based infrastructure with DuckDB and Parquet, significantly reducing query latency while maintaining a footprint much lighter than traditional Spark or Hadoop clusters. Our modular design enables true storage-compute separation, as DuckDB is capable of querying remote object storage natively.
+
+## Quick Start
+    0. Clone this project locally, run `pip install -r requirements.txt`
+    1. Install Docker Compose, make sure it is enabled with systemd or similar.
+    2. Start kafka via `docker-compose up -d` in the `kafka` dir
+    3. Add the tickers of interest to `config/subscriptions.yml`
+    4. In one terminal run `python ingestion/subscription_service.py`
+    5. Kafka can be viewed graphically (Kafka UI) at `localhost:8080`
+    6. W.I.P
+
+## Dependencies
+    - Docker compose
+    - See `requirements.txt` for python requirements
+
+## High level architecture
+
+Market data api -> Kafka -> Parquet -> DuckDB -> End User
+
+### Architecture
+- market-analytics-platform/
     - ingestion/
-        -market feeds
+        - market feeds
     - storage/
         - parquet
     - analytics/
         - duckdb
+    - logs/
+        - live logs from all python aspects
 
-## Software Solutions
-- Docker
-- Apache Kafka
+### Software Solutions
+- Docker: containerization of Kafka for ease of deployment/use.
+- Apache Kafka: Handles streaming data and retention at scale.
+- Parquet: Facilitates DuckDB via fast columnar storage.
+- Duckdb: Columnar analytics db-- lighter than spark, cloud native, no jvm management.
 
-## Custom Software
+### Custom Software
 - Ingestion: Contains the source files for a consumer that:
     - Automatically connects to *Yahoo finance* and subscribes to latest pricing data
     - Automatically scales based off of tickers placed in `subscription.yml`
     - Writes market data to Kafka for retention
 
 - Storage:
-    - Scrapes daily data from Kafka
+    - Scrapes and streams kafka data to file
     - Turns it into a dataframe
     - Stores it as parquet for fast DuckDB OLAP workloads
 
-- Analytics: 
+- Analytics:
+    - W.I.P
+
+### Scaling Strategy
+    - Ingestion: Containerization and deployment of multiple instances of the `subscription_service`, dividing the load up via `subscriptions.yml`, where hotter symbols have a sparser machine. Kafka can be sharded across multiple machines.
+    - Storage: Parquet files partitioned by date and ticker, stored in a dedicated storage machine (ideally GCS or S3).
+    - Analytics: DuckDB should run separately of the parquet storage, on a much higher memory and compute machine. It can query the parquet files remotely.
