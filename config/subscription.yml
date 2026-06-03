@@ -1,3 +1,7 @@
 tickers: [
   "BTC-USD",
+  "SPY",
+  "SOL-USD",
+  "QQQ",
+  "IWM"
 ] 

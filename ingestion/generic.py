@@ -2,9 +2,13 @@ import yfinance #type: ignore[import-untyped]
 import argparse
 import logging
 from datetime import datetime
-import time
 import sys
 import signal
+from confluent_kafka import Producer
+import asyncio
+import socket
+import json
+import typing as tp
 
 __log_dir = "logs"
 
@@ -12,11 +16,13 @@ class GenericIngestor:
     def __init__(self, symbol: str, logger: logging.Logger):
         self.symbol: str = symbol
         self.logger: logging.Logger  = logger
+        conf = {'bootstrap.servers': '127.0.0.1:9092', 'client.id': socket.gethostname()}
+        self.producer = Producer(conf)
 
     def __enter__(self):
         return self
     
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: tp.Any, exc_value: tp.Any, traceback: tp.Any):
         self.logger.info(f"Spinning down {self.symbol}")
         for handler in self.logger.handlers:
             handler.flush()
@@ -24,20 +30,28 @@ class GenericIngestor:
     def __repr__(self):
         return f"{GenericIngestor.__class__.__name__}_{self.symbol}"
     
-    def consume_api(self):
+    async def consume_api(self):
         try:
-            with yfinance.WebSocket() as ws:
-                ws.subscribe(self.symbol)
-                time.sleep(2)
-                ws.listen(self.__price_update_handler)
+            async with yfinance.AsyncWebSocket() as ws:
+                await ws.subscribe(self.symbol)
+                await asyncio.sleep(2)
+                await ws.listen(self.__price_update_handler)
         except Exception as e:
             raise Exception(f"Invalid ticker {self.symbol}: {e}")
 
-    def __price_update_handler(self, message):
+    async def __price_update_handler(self, message):
         self.logger.info(f"Message: {message}")
-        #TODO write to kafka
+        message["Recieved"] = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
+        self.producer.produce('market-data', key=self.symbol, value=json.dumps(message).encode('utf-8'), callback=self.acked)
+        self.producer.poll(0)
 
-def handle_sigterm(signum, frame):
+    def acked(self, err: str, msg: str):
+        if err is not None:
+            self.logger.warning(f"Failed to deliver message: {str(msg)}: {str(err)}")
+        else:
+            self.logger.debug(f"Message produced: {str(msg)}")
+
+def handle_sigterm(signum: tp.Any, frame: tp.Any):
     sys.exit(0)
 
 def arg_parser() -> argparse.Namespace:
@@ -56,6 +70,10 @@ def setup_logging(ticker: str, verbose: bool) -> logging.Logger:
         logger.info(f"Set logging destination: {log}, logging mode {logging.getLevelName(logger.getEffectiveLevel())}")
         return logger
 
+async def run_ingestor(args: argparse.Namespace, logger: logging.Logger):
+        with GenericIngestor(args.ticker, logger) as g:
+            await g.consume_api()
+
 if __name__=="__main__":
     args = arg_parser()
     logger = setup_logging(args.ticker, args.verbose)
@@ -65,8 +83,7 @@ if __name__=="__main__":
     except NotImplementedError:
         pass
     try:
-        with GenericIngestor(args.ticker, logger) as g:
-            g.consume_api()
+        asyncio.run(run_ingestor(args, logger))
     except SystemExit:
         pass #implemented by __exit__
     except Exception:

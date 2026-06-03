@@ -7,6 +7,8 @@ import subprocess
 import time
 from datetime import timedelta
 
+
+
 __log_location = f"logs/subscriptions_{datetime.now().strftime("%Y-%m-%d")}.log"
 __config_location = "config/logging.yml"
 __subscription_config_file = "config/subscription.yml"
@@ -17,7 +19,7 @@ class Subscribe:
         self.config_location = config
         self.__get_subscriptions()
         self.active_subscriptions: dict = defaultdict()
-        self.polling_period = 5
+        self.polling_period = 300
 
     def __get_subscriptions(self) -> None:
         try:
@@ -94,6 +96,7 @@ class Subscribe:
                 self.active_subscriptions[i].kill()
                 self.active_subscriptions[i].wait()
             del self.active_subscriptions[i]
+            
 def setup_logging(verbose: bool) -> logging.Logger:
     try:
         print("Reading config")
