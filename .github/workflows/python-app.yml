@@ -33,7 +33,7 @@ jobs:
        ruff check
     - name: Check typing with mypy
       run: | 
-        mypy
+        mypy .
     - name: Test with pytest
       run: |
         pytest
