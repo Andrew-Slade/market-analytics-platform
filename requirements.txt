@@ -7,6 +7,7 @@ confluent-kafka==2.14.2
 curl_cffi==0.15.0
 duckdb==1.5.3
 idna==3.17
+iniconfig==2.3.0
 librt==0.11.0
 markdown-it-py==4.2.0
 mdurl==0.1.2
@@ -14,16 +15,19 @@ multitasking==0.0.13
 mypy==2.1.0
 mypy_extensions==1.1.0
 numpy==2.4.6
+packaging==26.2
 pandas==3.0.3
 pathspec==1.1.1
 peewee==4.0.6
 platformdirs==4.10.0
+pluggy==1.6.0
 protobuf==7.35.0
 py4j==0.10.9.9
 pyarrow==24.0.0
 pycparser==3.0
 Pygments==2.20.0
 pyspark==4.1.2
+pytest==9.0.3
 python-dateutil==2.9.0.post0
 pytz==2026.2
 PyYAML==6.0.3

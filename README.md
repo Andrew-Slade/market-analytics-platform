@@ -1,6 +1,16 @@
 # Market Analytics Platform
 
 ## Setup
+market-analytics-platform/
+├── ingestion/
+│   └── market feeds
+│
+├── storage/
+│   └── parquet
+│
+├── analytics/
+|    └── duckdb
+|
 
 ## Software Solutions
 - Docker
