@@ -2,7 +2,7 @@
 
 ## Why?
 
-This platform demonstrates an end-to-end analytics workflow that runs seamlessly on a local developer laptop or in the cloud. We replace heavy, JVM-based infrastructure with DuckDB and Parquet, significantly reducing query latency while maintaining a footprint much lighter than traditional Spark or Hadoop clusters. Our modular design enables true storage-compute separation, as DuckDB is capable of querying remote object storage natively.
+> This platform demonstrates an end-to-end analytics workflow that runs seamlessly on a local developer laptop or in the cloud. We replace heavy, JVM-based infrastructure with DuckDB and Parquet, significantly reducing query latency while maintaining a footprint much lighter than traditional Spark or Hadoop clusters. Our modular design enables true storage-compute separation, as DuckDB is capable of querying remote object storage natively.
 
 ## Quick Start
     0. Clone this project locally, run `pip install -r requirements.txt`
@@ -20,6 +20,9 @@ This platform demonstrates an end-to-end analytics workflow that runs seamlessly
 ## High level architecture
 
 Market data api -> Kafka -> Parquet -> DuckDB -> End User
+
+
+## Technical details
 
 ### Architecture
 - market-analytics-platform/
