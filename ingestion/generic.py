@@ -1,36 +1,37 @@
-import yfinance #type: ignore[import-untyped]
 import argparse
 import logging
 from datetime import datetime
 import sys
 import signal
-from confluent_kafka import Producer
 import asyncio
 import socket
 import json
 import typing as tp
 
+import yfinance #type: ignore[import-untyped]
+from confluent_kafka import Producer, KafkaError, Message
+
 __log_dir = "logs"
 
 class GenericIngestor:
-    def __init__(self, symbol: str, logger: logging.Logger):
+    def __init__(self, symbol: str, logger: logging.Logger) -> None:
         self.symbol: str = symbol
         self.logger: logging.Logger  = logger
         conf = {'bootstrap.servers': '127.0.0.1:9092', 'client.id': socket.gethostname()}
         self.producer = Producer(conf)
 
-    def __enter__(self):
+    def __enter__(self) -> tp.Any:
         return self
     
-    def __exit__(self, exc_type: tp.Any, exc_value: tp.Any, traceback: tp.Any):
+    def __exit__(self, exc_type: tp.Any, exc_value: tp.Any, traceback: tp.Any) -> None:
         self.logger.info(f"Spinning down {self.symbol}")
         for handler in self.logger.handlers:
             handler.flush()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{GenericIngestor.__class__.__name__}_{self.symbol}"
     
-    async def consume_api(self):
+    async def consume_api(self) -> None:
         try:
             async with yfinance.AsyncWebSocket() as ws:
                 await ws.subscribe(self.symbol)
@@ -39,19 +40,19 @@ class GenericIngestor:
         except Exception as e:
             raise Exception(f"Invalid ticker {self.symbol}: {e}")
 
-    async def __price_update_handler(self, message):
+    async def __price_update_handler(self, message: dict) -> None:
         self.logger.info(f"Message: {message}")
         message["Recieved"] = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
         self.producer.produce('market-data', key=self.symbol, value=json.dumps(message).encode('utf-8'), callback=self.acked)
         self.producer.poll(0)
 
-    def acked(self, err: str, msg: str):
+    def acked(self, err: tp.Optional[KafkaError], msg: tp.Optional[Message]) -> None:
         if err is not None:
             self.logger.warning(f"Failed to deliver message: {str(msg)}: {str(err)}")
         else:
             self.logger.debug(f"Message produced: {str(msg)}")
 
-def handle_sigterm(signum: tp.Any, frame: tp.Any):
+def handle_sigterm(signum: tp.Optional[tp.Any], frame: tp.Optional[tp.Any]) -> None:
     sys.exit(0)
 
 def arg_parser() -> argparse.Namespace:
@@ -70,13 +71,13 @@ def setup_logging(ticker: str, verbose: bool) -> logging.Logger:
         logger.info(f"Set logging destination: {log}, logging mode {logging.getLevelName(logger.getEffectiveLevel())}")
         return logger
 
-async def run_ingestor(args: argparse.Namespace, logger: logging.Logger):
+async def run_ingestor(args: argparse.Namespace, logger: logging.Logger) -> None:
         with GenericIngestor(args.ticker, logger) as g:
             await g.consume_api()
 
 if __name__=="__main__":
-    args = arg_parser()
-    logger = setup_logging(args.ticker, args.verbose)
+    args: argparse.Namespace = arg_parser()
+    logger: logging.Logger = setup_logging(args.ticker, args.verbose)
     logger.info(f"Starting up {args.ticker}")
     try:
         signal.signal(signal.SIGTERM, handle_sigterm)

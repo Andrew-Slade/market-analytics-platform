@@ -6,15 +6,16 @@ from collections import defaultdict
 import subprocess
 import time
 from datetime import timedelta
+import typing as tp
 
 
 
-__log_location = f"logs/subscriptions_{datetime.now().strftime("%Y-%m-%d")}.log"
-__config_location = "config/logging.yml"
-__subscription_config_file = "config/subscription.yml"
+__log_location: str = f"logs/subscriptions_{datetime.now().strftime("%Y-%m-%d")}.log"
+__config_location: str = "config/logging.yml"
+__subscription_config_file: str = "config/subscription.yml"
 
 class Subscribe:
-    def __init__(self, logger: logging.Logger, config: str):
+    def __init__(self, logger: logging.Logger, config: str) -> None:
         self.logger = logger
         self.config_location = config
         self.__get_subscriptions()
@@ -24,7 +25,7 @@ class Subscribe:
     def __get_subscriptions(self) -> None:
         try:
             with open(self.config_location) as f:
-                self.config: dict = yaml.safe_load(f)["tickers"]
+                self.config: list[tp.Any] = yaml.safe_load(f)["tickers"]
                 if len(self.config)   == 0:
                     raise Exception("Not enough arguments")
         except FileNotFoundError:
@@ -40,14 +41,15 @@ class Subscribe:
             logger.error(t)
             raise Exception(t)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.__kill_subscription(list(self.active_subscriptions.keys()))
 
-    def run(self):
-        last = datetime.now() - timedelta(seconds = self.polling_period)
-        current_subscription_count = 0
-        new_subscription_count = 0
-        first_run = True
+    def run(self) -> None:
+        last: tp.Any = datetime.now() - timedelta(seconds = self.polling_period)
+        current_subscription_count: int = 0
+        new_subscription_count: int = 0
+        first_run: bool = True
+
         while True:
             time.sleep(0.1)
             now = datetime.now()
@@ -59,8 +61,8 @@ class Subscribe:
                 last = datetime.now()
                 if first_run:
                     first_run = False
-            diff = current_subscription_count - new_subscription_count
-            adiff = abs(diff)
+            diff: float = current_subscription_count - new_subscription_count
+            adiff: float = abs(diff)
             diff = diff / adiff if adiff != 0 else 0
             match diff:
                 case -1: #more new subscriptions than current
@@ -81,12 +83,12 @@ class Subscribe:
                         if len(to_remove) > 0:
                             self.__kill_subscription(to_remove)
             
-    def __spin_up_subscription(self, add: list[str]):
+    def __spin_up_subscription(self, add: list[str]) -> None:
         for i in add:
             if i not in self.active_subscriptions:
                 self.active_subscriptions[i] = subprocess.Popen(["python", "ingestion/generic.py", i])
     
-    def __kill_subscription(self, remove: list[str]):
+    def __kill_subscription(self, remove: list[str]) -> None:
         for i in remove:
             try:
                 self.active_subscriptions[i].terminate()

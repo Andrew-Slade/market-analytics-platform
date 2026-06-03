@@ -1,5 +1,8 @@
 run.sh
 clean
+pre-push
 venv
 storage/
 logs/
+__pycache__/
+*.pyc
