@@ -1,5 +1,4 @@
 import pytest
-import pytest_mock
 import subprocess
 import logging
 from ingestion.subscription_service import Subscribe
