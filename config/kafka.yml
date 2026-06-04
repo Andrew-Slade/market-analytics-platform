@@ -1,0 +1,8 @@
+write:
+  bootstrap.servers: localhost:9093
+read:
+  bootstrap.servers: localhost:9093
+  group.id: parquetizer-group
+  auto.offset.reset: earliest
+  client.rack: ignore
+  connections.max.idle.ms: 60000

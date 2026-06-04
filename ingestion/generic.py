@@ -7,6 +7,7 @@ import asyncio
 import json
 import typing as tp
 import warnings
+import yaml
 
 import yfinance #type: ignore[import-untyped]
 from confluent_kafka import Producer, KafkaError, Message
@@ -16,12 +17,13 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="yfinance"
 __log_dir = "logs"
 
 class GenericIngestor:
-    def __init__(self, symbol: str, logger: logging.Logger) -> None:
+    def __init__(self, symbol: str, logger: logging.Logger, kafka_conf: dict) -> None:
         self.symbol: str = symbol
         self.logger: logging.Logger  = logger
-        conf = {'bootstrap.servers': '127.0.0.1:9092'}
-        self.producer = Producer(conf)
-        self.logger.info(f"Initialized ingestor for {self.symbol} on {conf['bootstrap.servers']}")
+        print(f"Kafka config: {kafka_conf["write"]}")
+        self.kafka_conf: dict = kafka_conf["write"]
+        self.producer = Producer(self.kafka_conf)
+        self.logger.info(f"Initialized ingestor for {self.symbol} on {self.kafka_conf['bootstrap.servers']}")
 
     def __enter__(self) -> tp.Any:
         return self
@@ -74,12 +76,14 @@ def setup_logging(ticker: str, verbose: bool) -> logging.Logger:
         logger.info(f"Set logging destination: {log}, logging mode {logging.getLevelName(logger.getEffectiveLevel())}")
         return logger
 
-async def run_ingestor(args: argparse.Namespace, logger: logging.Logger) -> None:
-        with GenericIngestor(args.ticker, logger) as g:
+async def run_ingestor(args: argparse.Namespace, logger: logging.Logger, kconfig: dict) -> None:
+        with GenericIngestor(args.ticker, logger, kconfig) as g:
             await g.consume_api()
 
 if __name__=="__main__":
     args: argparse.Namespace = arg_parser()
+    with open("config/kafka.yml") as kfile:
+        kconfig = yaml.safe_load(kfile)
     logger: logging.Logger = setup_logging(args.ticker, args.verbose)
     logger.info(f"Starting up {args.ticker}")
     try:
@@ -87,7 +91,7 @@ if __name__=="__main__":
     except NotImplementedError:
         pass
     try:
-        asyncio.run(run_ingestor(args, logger))
+        asyncio.run(run_ingestor(args, logger, kconfig))
     except SystemExit:
         pass #implemented by __exit__
     except Exception:

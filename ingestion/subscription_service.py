@@ -20,7 +20,7 @@ class Subscribe:
         self.config_location = config
         self.__get_subscriptions()
         self.active_subscriptions: dict = defaultdict()
-        self.polling_period = 300
+        self.polling_period: int = 300
 
     def __get_subscriptions(self) -> None:
         try:
