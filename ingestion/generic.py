@@ -4,12 +4,14 @@ from datetime import datetime
 import sys
 import signal
 import asyncio
-import socket
 import json
 import typing as tp
+import warnings
 
 import yfinance #type: ignore[import-untyped]
 from confluent_kafka import Producer, KafkaError, Message
+
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="yfinance")
 
 __log_dir = "logs"
 
@@ -17,8 +19,9 @@ class GenericIngestor:
     def __init__(self, symbol: str, logger: logging.Logger) -> None:
         self.symbol: str = symbol
         self.logger: logging.Logger  = logger
-        conf = {'bootstrap.servers': '127.0.0.1:9092', 'client.id': socket.gethostname()}
+        conf = {'bootstrap.servers': '127.0.0.1:9092'}
         self.producer = Producer(conf)
+        self.logger.info(f"Initialized ingestor for {self.symbol} on {conf['bootstrap.servers']}")
 
     def __enter__(self) -> tp.Any:
         return self

@@ -2,12 +2,8 @@
 # for each symbol 
 # that scrapes the data and turns it into a parquet
 # this might actually be best threaded
-import pyarrow
-import pandas
 import logging
-import concurrent.futures
 
-from confluent_kafka import Consumer
 
 class Parquetizer:
     def __init__(self, config_path: str, logger: logging.Logger) -> None:
