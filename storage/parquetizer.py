@@ -45,7 +45,10 @@ class ParquetStreamer:
                 self.sparse_log_error(f"Kafka error: {message.error()}")
                 continue
             else:
-                message_queue.append((message.key().decode('utf-8'), message.value().decode('utf-8')))
+                key = message.key()
+                value = message.value()
+                if key is not None and value is not None:
+                    message_queue.append((key.decode('utf-8'), value.decode('utf-8')))
                 if len(message_queue) > self.buffer_size:
                     self.handle_batch(message_queue)
                     message_queue.clear()
