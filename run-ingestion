@@ -1,0 +1,7 @@
+#!/bin/bash
+clear
+source venv
+./clean
+mypy .
+ruff check --fix .
+python ingestion/subscription_service.py -v

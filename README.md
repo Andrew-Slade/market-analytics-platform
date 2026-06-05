@@ -7,9 +7,9 @@
 ## Quick Start
     0. Clone this project locally, run `pip install -r requirements.txt`
     1. Install Docker Compose, make sure it is enabled with systemd or similar.
-    2. Start kafka via `docker-compose up -d` in the `kafka` dir
+    2. Start kafka via the `kafka-up` script
     3. Add the tickers of interest to `config/subscriptions.yml`
-    4. In one terminal run `python ingestion/subscription_service.py`
+    4. In one terminal run the `run-ingestion` script
     5. Kafka can be viewed graphically (Kafka UI) at `localhost:8080`
     6. W.I.P
 
