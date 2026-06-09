@@ -98,7 +98,7 @@ class ParquetStreamer:
                         message_queue.clear()
 
     def create_parquet_stream(self, key: str) -> str:
-        partition = f"data/{datetime.now().strftime('%Y')}/{datetime.now().strftime('%m')}/{datetime.now().strftime('%Y%m%d')}"
+        partition = f"data/{datetime.now().strftime('%Y')}/{datetime.now().strftime('%m')}/{datetime.now().strftime('%d')}"
         os.makedirs(partition, exist_ok=True)
         self.parquet_writers[key] = ParquetWriter(f"{partition}/{key}.parquet", schema=self.mschema)
         return key
