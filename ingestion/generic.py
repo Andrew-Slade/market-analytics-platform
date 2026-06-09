@@ -37,13 +37,19 @@ class GenericIngestor:
         return f"{GenericIngestor.__class__.__name__}_{self.symbol}"
     
     async def consume_api(self) -> None:
-        try:
-            async with yfinance.AsyncWebSocket() as ws:
-                await ws.subscribe(self.symbol)
-                await asyncio.sleep(2)
-                await ws.listen(self.__price_update_handler)
-        except Exception as e:
-            raise Exception(f"Invalid ticker {self.symbol}: {e}")
+        backoff: int = 1
+        while True:
+            try:
+                async with yfinance.AsyncWebSocket() as ws:
+                    await ws.subscribe(self.symbol)
+                    backoff= 1
+                    await ws.listen(self.__price_update_handler)
+            except (ConnectionError, Exception) as e:
+                self.logger.error(f"Connection lost for {self.symbol}: {str(e)}  Will Try again in {backoff} seconds")
+                await asyncio.sleep(backoff)
+                backoff = min (backoff * 2, 60)
+                continue
+
 
     async def __price_update_handler(self, message: dict) -> None:
         self.logger.info(f"Message: {message}")
