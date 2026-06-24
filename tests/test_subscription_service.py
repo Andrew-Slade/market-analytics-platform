@@ -8,7 +8,7 @@ class Test_Subscription_Service:
     @pytest.fixture(autouse=True)
     def setup(self):
         logger = logging.getLogger("test_logger")
-        self.s = Subscribe(logger, "tests/test_data.yml")
+        self.s = Subscribe(logger, "tests/test_data.yml", "test.url")
 
     
     def test_init(self):

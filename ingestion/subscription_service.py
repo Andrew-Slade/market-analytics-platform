@@ -15,18 +15,21 @@ __config_location: str = "config/logging.yml"
 __subscription_config_file: str = "config/subscription.yml"
 
 class Subscribe:
-    def __init__(self, logger: logging.Logger, config: str) -> None:
+    def __init__(self, logger: logging.Logger, config: str, url: str = "") -> None:
         self.logger = logger
         self.config_location = config
-        self.url = ""
-        with open(self.config_location) as f: #one time read of url for subscription service endpoint
-            self.url = yaml.safe_load(f)["url"]
-        if self.url == "" or not self.url:
-            raise Exception(f"Subscription service url not found in {self.config_location}")
+        if url == "":
+            self.url = self.__get_url()
         self.__get_subscriptions()
         self.active_subscriptions: dict = defaultdict()
         self.polling_period: int = 300
 
+    def __get_url(self):
+        with open(self.config_location) as f: #one time read of url for subscription service endpoint
+            return yaml.safe_load(f)["url"]
+        if self.url == "" or not self.url:
+            raise Exception(f"Subscription service url not found in {self.config_location}")
+        
     def __get_subscriptions(self) -> None:
         try:
             with open(self.config_location) as f:
