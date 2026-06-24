@@ -18,6 +18,11 @@ class Subscribe:
     def __init__(self, logger: logging.Logger, config: str) -> None:
         self.logger = logger
         self.config_location = config
+        self.url = ""
+        with open(self.config_location) as f: #one time read of url for subscription service endpoint
+            self.url = yaml.safe_load(f)["url"]
+        if self.url == "" or not self.url:
+            raise Exception(f"Subscription service url not found in {self.config_location}")
         self.__get_subscriptions()
         self.active_subscriptions: dict = defaultdict()
         self.polling_period: int = 300
@@ -86,7 +91,7 @@ class Subscribe:
     def __spin_up_subscription(self, add: list[str]) -> None:
         for i in add:
             if i not in self.active_subscriptions:
-                self.active_subscriptions[i] = subprocess.Popen(["python", "ingestion/generic.py", i])
+                self.active_subscriptions[i] = subprocess.Popen(["python", "ingestion/generic.py", i, self.url])
     
     def __kill_subscription(self, remove: list[str]) -> None:
         for i in remove:

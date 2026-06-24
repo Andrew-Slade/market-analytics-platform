@@ -7,9 +7,9 @@ import asyncio
 import json
 import typing as tp
 import warnings
+import websockets
 import yaml
 
-import yfinance #type: ignore[import-untyped]
 from confluent_kafka import Producer, KafkaError, Message
 
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="yfinance")
@@ -17,9 +17,10 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="yfinance"
 __log_dir = "logs"
 
 class GenericIngestor:
-    def __init__(self, symbol: str, logger: logging.Logger, kafka_conf: dict) -> None:
+    def __init__(self, symbol: str, logger: logging.Logger, kafka_conf: dict, url: str) -> None:
         self.symbol: str = symbol
         self.logger: logging.Logger  = logger
+        self.url: str = url
         print(f"Kafka config: {kafka_conf["write"]}")
         self.kafka_conf: dict = kafka_conf["write"]
         self.producer = Producer(self.kafka_conf)
@@ -38,13 +39,32 @@ class GenericIngestor:
     
     async def consume_api(self) -> None:
         backoff: int = 1
+        #convert to coinbase
+        channels = ["level2", "heartbeat"]
+        #ticker entry and L2 for the symbol
+        subscription_message = json.dumps({
+            "type": "subscribe",
+            'product_ids': [self.symbol],
+            "channels": [channels,
+            {
+              "name": "ticker",
+              "product_ids": [self.symbol]
+            }]
+        })
         while True:
+            self.logger.debug(f"Attempting to connect to {self.url} for {self.symbol}")
             try:
-                async with yfinance.AsyncWebSocket() as ws:
-                    await ws.subscribe(self.symbol)
-                    backoff= 1
-                    await ws.listen(self.__price_update_handler)
-            except (ConnectionError, Exception) as e:
+                async with websockets.connect(self.url, ping_interval=None) as websocket:
+                    self.logger.debug(f"Connected to {self.url} for {self.symbol}")
+                    await websocket.send(subscription_message)
+                    while True:
+                        self.logger.debug(f"Waiting for message for {self.symbol}")
+                        response = await websocket.recv()
+                        backoff = 1
+                        response_dict: dict = json.loads(response)
+                        if response_dict.get("type") == "ticker":
+                            await self.__price_update_handler(response_dict)
+            except (websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK, Exception) as e:
                 self.logger.error(f"Connection lost for {self.symbol}: {str(e)}  Will Try again in {backoff} seconds")
                 await asyncio.sleep(backoff)
                 backoff = min (backoff * 2, 60)
@@ -69,6 +89,7 @@ def handle_sigterm(signum: tp.Optional[tp.Any], frame: tp.Optional[tp.Any]) -> N
 def arg_parser() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("ticker", type=str)
+    p.add_argument("url", type=str)
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
 
@@ -83,7 +104,7 @@ def setup_logging(ticker: str, verbose: bool) -> logging.Logger:
         return logger
 
 async def run_ingestor(args: argparse.Namespace, logger: logging.Logger, kconfig: dict) -> None:
-        with GenericIngestor(args.ticker, logger, kconfig) as g:
+        with GenericIngestor(args.ticker, logger, kconfig, args.url) as g:
             await g.consume_api()
 
 if __name__=="__main__":

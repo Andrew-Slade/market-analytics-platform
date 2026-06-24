@@ -1,8 +1,8 @@
 tickers: [
   "BTC-USD",
-  "SPY",
+  "ETH-USD",
   "SOL-USD",
-  "QQQ",
-  "IWM",
-  "DOGE-USD"
+  "DOGE-USD",
+
 ] 
+url: "wss://ws-feed.exchange.coinbase.com"
