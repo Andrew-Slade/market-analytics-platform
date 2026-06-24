@@ -26,31 +26,30 @@ class ParquetStreamer:
         self.buffer_size = 100
         self.topic = "market-data"
         self.mschema = pa.schema([
-                        ('id', pa.string()),
-                        ('price', pa.float64()),
-                        ('time', pa.string()),
-                        ('currency', pa.string()),          # Nullable for Equity
-                        ('exchange', pa.string()),
-                        ('quote_type', pa.int64()),
-                        ('market_hours', pa.int64()),
-                        ('change_percent', pa.float64()),
-                        ('change_percentage', pa.float64()), # Added for consistency
-                        ('day_volume', pa.string()),        # Nullable for Equity
-                        ('day_high', pa.float64()),         # Nullable for Equity
-                        ('day_low', pa.float64()),          # Nullable for Equity
-                        ('change', pa.float64()),
-                        ('open_price', pa.float64()),       # Nullable for Equity
-                        ('last_size', pa.string()),         # Nullable for Equity
-                        ('price_hint', pa.string()),
-                        ('vol_24hr', pa.string()),          # Nullable for Equity
-                        ('vol_all_currencies', pa.string()), # Nullable for Equity
-                        ('from_currency', pa.string()),     # Nullable for Equity
-                        ('circulating_supply', pa.float64()), # Nullable for Equity
-                        ('market_cap', pa.float64()),       # Nullable for Equity
-                        ('Recieved', pa.string()),
-                        ('Consumed', pa.string()),
-                        ('Stored', pa.string())
-                    ])
+            ("type", pa.string()),
+            ("sequence", pa.int64()),
+            ("product_id", pa.string()),
+            ("price", pa.float64()),
+            ("open_24h", pa.float64()),
+            ("volume_24h", pa.float64()),
+            ("low_24h", pa.float64()),
+            ("high_24h", pa.float64()),
+            ("volume_30d", pa.float64()),
+            ("best_bid", pa.float64()),
+            ("best_bid_size", pa.float64()),
+            ("best_ask", pa.float64()),
+            ("best_ask_size", pa.float64()),
+            ("last_size", pa.float64()),
+            ("side", pa.string()),
+            ("time", pa.timestamp("ns", tz="UTC")),
+            ("trade_id", pa.int64()),
+            ("Recieved", pa.timestamp("us")),
+        ])
+        self.numeric_cols = [
+                'price', 'open_24h', 'volume_24h', 'low_24h', 'high_24h', 
+                'volume_30d', 'best_bid', 'best_bid_size', 'best_ask', 
+                'best_ask_size', 'last_size'
+            ]
         self.logger.info(f"Initialized ParquetStreamer listening to topic {self.topic} using group id {self.kafka_config['group.id']} with buffer size {self.buffer_size} and polling timeout {self.polling_timeout}")
 
     def __enter__(self) -> tp.Any:
@@ -119,11 +118,15 @@ class ParquetStreamer:
         for key, values in batches.items():
             for i in values:
                 i["Stored"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f') #mark when the parquet wrote these
-            df = pd.DataFrame(values)
+            df = pd.DataFrame(values) #create a dataframe with all the data from one symbol
             for col_name in self.mschema:
                 if col_name.name not in df.columns:
-                    df[col_name.name] = pd.NA
-            df = df[self.mschema.names]
+                    df[col_name.name] = pd.NA #null out any empty columns
+            df = df[self.mschema.names] #reduce columns
+            for col in self.numeric_cols:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            df['time'] = pd.to_datetime(df['time'], utc=True).dt.tz_convert('UTC')
+            df['Recieved'] = pd.to_datetime(df['Recieved'], format='%d-%m-%Y %H:%M:%S.%f').astype('datetime64[us]')
             table = pa.Table.from_pandas(df, schema=self.mschema)
             try:
                 parquet_writers[key].write_table(table)

@@ -3,6 +3,9 @@ tickers: [
   "ETH-USD",
   "SOL-USD",
   "DOGE-USD",
+  "XRP-USD",
+  "USDT-USD",
+  "AERO-USD"
 
 ] 
 url: "wss://ws-feed.exchange.coinbase.com"
