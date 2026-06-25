@@ -17,14 +17,15 @@ __config_location: str = "config/logging.yml"
 __log_location: str = "logs/parquetizer.log"
 
 class ParquetStreamer:
-    def __init__(self, logger: logging.Logger, kafka_config: dict) -> None:
+    def __init__(self, logger: logging.Logger, kafka_config: dict, date:str) -> None:
         self.logger: logging.Logger = logger
         self.kafka_config: dict = kafka_config["read"]
         self.kafka_config["group.id"] = f"{self.kafka_config.get("group.id", "parquetizer-group")}_{datetime.now().strftime("%Y%m%d%H%M%S")}"
         self.consumer = Consumer(self.kafka_config)
         self.polling_timeout = 1.0
         self.buffer_size = 100
-        self.topic = "market-data"
+        self.executedate = datetime.strptime(date, "%Y%m%d")
+        self.topic = f"market-data-{self.executedate.strftime("%Y%m%d")}"
         self.mschema = pa.schema([
             ("type", pa.string()),
             ("sequence", pa.int64()),
@@ -65,6 +66,7 @@ class ParquetStreamer:
                 i.close()
 
     def stream_from_kafka(self) -> None:
+        #TODO pickup from last left off
         self.parquet_writers: dict[str, ParquetWriter] = {}
         message_queue: Deque = deque()
         self.consumer.subscribe([self.topic])
@@ -97,7 +99,7 @@ class ParquetStreamer:
                         message_queue.clear()
 
     def create_parquet_stream(self, key: str) -> str:
-        partition = f"data/year={datetime.now().strftime('%Y')}/month={datetime.now().strftime('%m')}/day={datetime.now().strftime('%d')}"
+        partition = f"data/year={self.executedate.strftime('%Y')}/month={self.executedate.strftime('%m')}/day={self.executedate.strftime('%d')}"
         os.makedirs(partition, exist_ok=True)
         self.parquet_writers[key] = ParquetWriter(f"{partition}/{key}.parquet", schema=self.mschema)
         return key
@@ -161,6 +163,7 @@ def setup_logging(verbose: bool) -> logging.Logger:
 def arg_parser() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("-v", "--verbose", help="Enable debugging mode", action="store_true")
+    p.add_argument("-d", "--date", default=datetime.now().strftime("%Y%m%d"), help="Date in YYYYMMDD format")
     return p.parse_args()
 
 if __name__ == "__main__":
@@ -168,5 +171,5 @@ if __name__ == "__main__":
         kconfig = yaml.safe_load(kfile)
     args = arg_parser()
     logger = setup_logging(verbose=args.verbose)
-    with ParquetStreamer(logger=logger, kafka_config=kconfig) as ps:
+    with ParquetStreamer(logger=logger, kafka_config=kconfig, date=args.date) as ps:
         ps.run()

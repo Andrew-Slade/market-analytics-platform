@@ -74,7 +74,7 @@ class GenericIngestor:
     async def __price_update_handler(self, message: dict) -> None:
         self.logger.info(f"Message: {message}")
         message["Recieved"] = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
-        self.producer.produce('market-data', key=self.symbol, value=json.dumps(message).encode('utf-8'), callback=self.acked)
+        self.producer.produce(f'market-data-{datetime.now().strftime("%Y%m%d")}', key=self.symbol, value=json.dumps(message).encode('utf-8'), callback=self.acked)
         self.producer.poll(0)
 
     def acked(self, err: tp.Optional[KafkaError], msg: tp.Optional[Message]) -> None:
