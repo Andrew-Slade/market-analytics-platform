@@ -7,3 +7,8 @@ logs/
 __pycache__/
 *.pyc
 dead_letters/
+node_modules/
+*.env
+*.cache
+build/
+dist/

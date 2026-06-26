@@ -4,4 +4,4 @@ source venv
 rm logs/parquetizer*.log
 mypy .
 ruff check --fix .
-python storage/parquetizer.py -v -d $(date +%Y%m%d)
+python backend/storage/parquetizer.py -v -d $(date +%Y%m%d)

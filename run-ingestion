@@ -4,4 +4,4 @@ source venv
 ./clean-logs
 mypy .
 ruff check --fix .
-python ingestion/subscription_service.py -v
+python backend/ingestion/subscription_service.py -v

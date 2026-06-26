@@ -1,7 +1,7 @@
 import pytest
 import subprocess
 import logging
-from ingestion.subscription_service import Subscribe
+from backend.ingestion.subscription_service import Subscribe
 
 class Test_Subscription_Service:
     

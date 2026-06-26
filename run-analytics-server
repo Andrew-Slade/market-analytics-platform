@@ -1,0 +1,4 @@
+#!/bin/bash
+clear
+source venv
+uvicorn backend.analytics_server.main:app --reload
