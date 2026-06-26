@@ -25,6 +25,7 @@ class GenericIngestor:
         self.kafka_conf: dict = kafka_conf["write"]
         self.producer = Producer(self.kafka_conf)
         self.logger.info(f"Initialized ingestor for {self.symbol} on {self.kafka_conf['bootstrap.servers']}")
+        self.dlq = open(f"dead_letters/producer_{self.symbol}_{datetime.now().strftime("%Y%m%d")}.dlq", "a+")
 
     def __enter__(self) -> tp.Any:
         return self
@@ -33,6 +34,10 @@ class GenericIngestor:
         self.logger.info(f"Spinning down {self.symbol}")
         for handler in self.logger.handlers:
             handler.flush()
+        try:
+            self.dlq.close()
+        except Exception:
+            pass
 
     def __repr__(self) -> str:
         return f"{GenericIngestor.__class__.__name__}_{self.symbol}"
@@ -74,8 +79,12 @@ class GenericIngestor:
     async def __price_update_handler(self, message: dict) -> None:
         self.logger.info(f"Message: {message}")
         message["Recieved"] = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
-        self.producer.produce(f'market-data-{datetime.now().strftime("%Y%m%d")}', key=self.symbol, value=json.dumps(message).encode('utf-8'), callback=self.acked)
-        self.producer.poll(0)
+        try:
+            self.producer.produce(f'market-data-{datetime.now().strftime("%Y%m%d")}', key=self.symbol, value=json.dumps(message).encode('utf-8'), callback=self.acked)
+            self.producer.poll(0)
+        except Exception:
+            self.logger.warning(f"Message malformed for {self.symbol}")
+            self.dlq.write(f"{message}\n")
 
     def acked(self, err: tp.Optional[KafkaError], msg: tp.Optional[Message]) -> None:
         if err is not None:

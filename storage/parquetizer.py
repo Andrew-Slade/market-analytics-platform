@@ -6,9 +6,9 @@ from typing import Deque
 import yaml
 from datetime import datetime
 import typing as tp
-from pyarrow.parquet import ParquetWriter
 import pyarrow as pa
 import pandas as pd
+import deltalake
 
 import argparse
 from confluent_kafka import Consumer, Message
@@ -26,6 +26,7 @@ class ParquetStreamer:
         self.buffer_size = 100
         self.executedate = datetime.strptime(date, "%Y%m%d")
         self.topic = f"market-data-{self.executedate.strftime("%Y%m%d")}"
+        self.dlq = f"dead_letters/consumer_{datetime.now().strftime("%Y%m%d")}"
         self.mschema = pa.schema([
             ("type", pa.string()),
             ("sequence", pa.int64()),
@@ -61,13 +62,10 @@ class ParquetStreamer:
         self.consumer.close()
         for handler in self.logger.handlers:
             handler.flush()
-        if len(self.parquet_writers) > 0:
-            for i in self.parquet_writers.values():
-                i.close()
 
     def stream_from_kafka(self) -> None:
         #TODO pickup from last left off
-        self.parquet_writers: dict[str, ParquetWriter] = {}
+        self.parquet_tables: dict[str, str] = {}
         message_queue: Deque = deque()
         self.consumer.subscribe([self.topic])
         self.logger.info(f"Subscribed to topic {self.topic}, beginning to poll for messages...")
@@ -95,13 +93,14 @@ class ParquetStreamer:
                         if pkey not in keys_seen:
                             keys_seen.add(self.create_parquet_stream(pkey))
                     if len(message_queue) > self.buffer_size :
-                        self.handle_batch(message_queue, self.parquet_writers)
+                        self.handle_batch(message_queue, self.parquet_tables)
                         message_queue.clear()
 
     def create_parquet_stream(self, key: str) -> str:
+        #TODO, delta lake implementation
         partition = f"data/year={self.executedate.strftime('%Y')}/month={self.executedate.strftime('%m')}/day={self.executedate.strftime('%d')}"
         os.makedirs(partition, exist_ok=True)
-        self.parquet_writers[key] = ParquetWriter(f"{partition}/{key}.parquet", schema=self.mschema)
+        self.parquet_tables[key] = f"{partition}/{key}"
         return key
 
     def sparse_log_error(self, message: str, count = 0) -> int:
@@ -111,7 +110,7 @@ class ParquetStreamer:
             count = 0
         return count
 
-    def handle_batch(self, batch: Deque[tuple[str, dict]], parquet_writers: dict[str, ParquetWriter]) -> None:
+    def handle_batch(self, batch: Deque[tuple[str, dict]], parquet_tables: dict[str, str]) -> None:
         self.logger.debug(f"Buffer size exceeded: {len(batch)} messages in queue")
         batches = defaultdict(list)
         while len(batch) > 0:
@@ -129,13 +128,17 @@ class ParquetStreamer:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             df['time'] = pd.to_datetime(df['time'], utc=True).dt.tz_convert('UTC')
             df['Recieved'] = pd.to_datetime(df['Recieved'], format='%d-%m-%Y %H:%M:%S.%f').astype('datetime64[us]')
-            table = pa.Table.from_pandas(df, schema=self.mschema)
             try:
-                parquet_writers[key].write_table(table)
-                self.logger.debug(f"Wrote batch of size {len(values)} to parquet for key {key}")
-            except Exception as e:
-                self.logger.error(f"Error writing to parquet for key {key}: {e}")
-                continue
+                table = pa.Table.from_pandas(df, schema=self.mschema)
+            except Exception:
+                df.to_csv(f"{self.dlq}_{key}_{datetime.now().strftime("%Y%m%d_%H%M%S%f")}.dlq", index=False) #if we cant get the dataframe nicely into the pyarrow schema, dead letter queue it
+            else:
+                try:
+                    deltalake.write_deltalake(parquet_tables[key], table, mode="append")
+                    self.logger.debug(f"Wrote batch of size {len(values)} to parquet for key {key}")
+                except Exception as e:
+                    self.logger.error(f"Error writing to parquet for key {key}: {e}")
+                    continue
             
     def run(self) -> None:
         #stream from kafka, once messages hit the buffer size, write to parquet and clear buffer
