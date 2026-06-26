@@ -9,10 +9,9 @@ from datetime import timedelta
 import typing as tp
 
 
-
-__log_location: str = f"logs/subscriptions_{datetime.now().strftime("%Y-%m-%d")}.log"
-__config_location: str = "config/logging.yml"
-__subscription_config_file: str = "config/subscription.yml"
+__log_location: str = f"backend/logs/subscriptions_{datetime.now().strftime("%Y-%m-%d")}.log"
+__config_location: str = "backend/config/logging.yml"
+__subscription_config_file: str = "backend/config/subscription.yml"
 
 class Subscribe:
     def __init__(self, logger: logging.Logger, config: str, url: str = "") -> None:
@@ -94,7 +93,7 @@ class Subscribe:
     def __spin_up_subscription(self, add: list[str]) -> None:
         for i in add:
             if i not in self.active_subscriptions:
-                self.active_subscriptions[i] = subprocess.Popen(["python", "ingestion/generic.py", i, self.url])
+                self.active_subscriptions[i] = subprocess.Popen(["python", "backend/ingestion/generic.py", i, self.url])
     
     def __kill_subscription(self, remove: list[str]) -> None:
         for i in remove:

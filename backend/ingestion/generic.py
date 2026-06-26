@@ -14,7 +14,8 @@ from confluent_kafka import Producer, KafkaError, Message
 
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="yfinance")
 
-__log_dir = "logs"
+__log_dir: str = "backend/logs"
+__kafka_conf: str = "backend/config/kafka.yml"
 
 class GenericIngestor:
     def __init__(self, symbol: str, logger: logging.Logger, kafka_conf: dict, url: str) -> None:
@@ -25,7 +26,7 @@ class GenericIngestor:
         self.kafka_conf: dict = kafka_conf["write"]
         self.producer = Producer(self.kafka_conf)
         self.logger.info(f"Initialized ingestor for {self.symbol} on {self.kafka_conf['bootstrap.servers']}")
-        self.dlq = open(f"dead_letters/producer_{self.symbol}_{datetime.now().strftime("%Y%m%d")}.dlq", "a+")
+        self.dlq = open(f"backend/dead_letters/producer_{self.symbol}_{datetime.now().strftime("%Y%m%d")}.dlq", "a+")
 
     def __enter__(self) -> tp.Any:
         return self
@@ -118,7 +119,7 @@ async def run_ingestor(args: argparse.Namespace, logger: logging.Logger, kconfig
 
 if __name__=="__main__":
     args: argparse.Namespace = arg_parser()
-    with open("config/kafka.yml") as kfile:
+    with open(__kafka_conf) as kfile:
         kconfig = yaml.safe_load(kfile)
     logger: logging.Logger = setup_logging(args.ticker, args.verbose)
     logger.info(f"Starting up {args.ticker}")

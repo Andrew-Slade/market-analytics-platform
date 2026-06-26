@@ -1,7 +1,7 @@
 #!/bin/bash
 clear
 source venv
-rm logs/parquetizer*.log
+./clean-logs
 mypy .
 ruff check --fix .
 python backend/storage/parquetizer.py -v -d $(date +%Y%m%d)

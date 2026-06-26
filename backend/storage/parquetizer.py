@@ -13,8 +13,9 @@ import deltalake
 import argparse
 from confluent_kafka import Consumer, Message
 
-__config_location: str = "config/logging.yml"
-__log_location: str = "logs/parquetizer.log"
+__config_location: str = "backend/config/logging.yml"
+__log_location: str = "backend/logs/parquetizer.log"
+__kafka_conf: str = "backend/config/kafka.yml"
 
 class ParquetStreamer:
     def __init__(self, logger: logging.Logger, kafka_config: dict, date:str) -> None:
@@ -26,7 +27,7 @@ class ParquetStreamer:
         self.buffer_size = 100
         self.executedate = datetime.strptime(date, "%Y%m%d")
         self.topic = f"market-data-{self.executedate.strftime("%Y%m%d")}"
-        self.dlq = f"dead_letters/consumer_{datetime.now().strftime("%Y%m%d")}"
+        self.dlq = f"backend/dead_letters/consumer_{datetime.now().strftime("%Y%m%d")}"
         self.mschema = pa.schema([
             ("type", pa.string()),
             ("sequence", pa.int64()),
@@ -170,7 +171,7 @@ def arg_parser() -> argparse.Namespace:
     return p.parse_args()
 
 if __name__ == "__main__":
-    with open("config/kafka.yml") as kfile:
+    with open(__kafka_conf) as kfile:
         kconfig = yaml.safe_load(kfile)
     args = arg_parser()
     logger = setup_logging(verbose=args.verbose)
