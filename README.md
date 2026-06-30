@@ -58,10 +58,10 @@ Market data api -> Kafka -> Parquet (delta lake) -> DuckDB -> End User
     - W.I.P
 
 ### Endpoint samples
-    - `https://localhost:8000/quickvwap`
-    - `http://localhost:8000/returns?symbol=<SYMBOL>`
-    - `http://localhost:8000/dataset`
-    - `http://localhost:8000/correlation?symbol1=<SYMBOL>&symbol2=<SYMBOL>`
+    - https://localhost:8000/quickvwap
+    - http://localhost:8000/returns?symbol=<SYMBOL>
+    - http://localhost:8000/dataset
+    - http://localhost:8000/correlation?symbol1=<SYMBOL>&symbol2=<SYMBOL>
 
 ### Scaling Strategy
     - Ingestion: Containerization and deployment of multiple instances of the `subscription_service`, dividing the load up via `subscriptions.yml`, where hotter symbols have a sparser machine. Kafka can be sharded across multiple machines.
