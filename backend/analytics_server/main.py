@@ -2,6 +2,8 @@ from fastapi import FastAPI
 import duckdb
 from datetime import datetime
 import yaml
+import re
+from functools import lru_cache
 
 __sub_file = "backend/config/subscription.yml"
 
@@ -27,11 +29,17 @@ async def marketview():
     """
     VWAP over all available data for all available symbols for this date
     """
-    res = conn.sql(f"""
-    SELECT product_id, SUM(last_size) as cumulative_volume, SUM(price * last_size) / SUM(last_size) as vwap
+    res = conn.execute(f"""
+    SELECT
+        product_id, 
+        SUM(last_size) as cumulative_volume,
+        SUM(price * last_size) / SUM(last_size) as vwap
     FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=True)
-    WHERE year = {datetime.now().year} AND month = {datetime.now().month} AND day = {datetime.now().day} group by product_id
-    """).fetchall()
+    WHERE year = ? 
+    AND month = ? 
+    AND day = ? 
+    GROUP BY product_id
+    """, [datetime.now().year, datetime.now().month, datetime.now().day]).fetchall()
     records = {i[0]:{} for i in res}
     for i in res:
         records[i[0]] = {"cumulative volume": round(i[1],3), "vwap": round(i[2],2)}
@@ -44,32 +52,93 @@ async def vwap(symbol: str):
     """
     pass
 
-@app.post("/returns")
-async def returns():
-    "price change between multiple points, log is preferred, resample "
-    pass
+@lru_cache(maxsize=128)
+@app.get("/returns")
+async def returns(symbol):
+    symbols = [datetime.now().year, datetime.now().month, datetime.now().day, symbol]
+    if re.fullmatch(r"[a-zA-Z0-9-]+", symbol):
+        res =  conn.execute(f"""
+        WITH resampled AS (
+            SELECT 
+                date_trunc('minute', time) AS bucket,
+                arg_max(price, time) AS price
+            FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
+            WHERE year = ?
+            AND month = ?
+            AND day = ?
+            AND product_id = ?
+            GROUP BY bucket
+        )
 
+        SELECT 
+            bucket,
+            price,
+            ln(price / lag(price) OVER (ORDER BY bucket)) AS return
+        FROM resampled
+        ORDER BY bucket;
+        """, symbols).fetchdf().dropna()
+        return res.to_dict(orient="records")
+    else:
+        return {"ERROR": "INVALID SYMBOL"}
 
+@lru_cache(maxsize=128)
 @app.post("/volatility")
 async def volatility():
     "Std deviation of returns and how far outside of that we are"
     pass
 
-@app.post("/correlation")
-async def corr():
-    #correlation matrix?, probably need multiple windows here to get accurately. read into dataframe and resample. Uses returns
-    pass
+@lru_cache(maxsize=128)
+@app.get("/correlation")
+async def corr(symbol1, symbol2):
+    query  =[datetime.now().year, datetime.now().month, datetime.now().day, symbol1, symbol2, symbol1, symbol2]
+    for i in query[3:]:
+        if not re.fullmatch(r"[a-zA-Z0-9-]+", i):
+            return  {"ERROR": "INVALID SYMBOL"}
+
+    res =  conn.execute(f"""
+    WITH base as (
+        SELECT
+            product_id,
+            date_trunc('minute', time) as bucket,
+            arg_max(price, time) as price
+        FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=True)
+        WHERE year = ? AND month = ? AND day = ?
+        AND product_id IN (?,?)
+        GROUP BY product_id, bucket
+    ),
+    rets AS (
+        SELECT
+            product_id,
+            bucket,
+            LN(price/ LAG(price) OVER (PARTITION BY product_id ORDER BY bucket)) AS ret
+        FROM base
+    )
+    SELECT
+        corr(a.ret, b.ret) AS correlation
+    FROM rets a
+    JOIN rets b
+        ON a.bucket = b.bucket
+    WHERE a.product_id = ?
+    AND b.product_id = ? AND a.ret IS NOT NULL AND b.ret IS NOT NULL
+    """, query).fetchdf().dropna()
+    return res.to_dict(orient="records")
 
 @app.get("/dataset")
 async def dataset():
     """
     View overall symbols and their row counts
     """
-    res =  conn.sql(f"""
-    SELECT distinct product_id, count(product_id) as row_count
+    res =  conn.execute(f"""
+    SELECT 
+        distinct product_id, 
+        COUNT(product_id) AS row_count
     FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=True)
-    WHERE year = {datetime.now().year} AND month = {datetime.now().month} AND day = {datetime.now().day} group by product_id order by count(product_id) desc
-    """).fetchall()
+    WHERE year = ? 
+    AND month = ? 
+    AND day = ? 
+    GROUP BY product_id 
+    ORDER BY COUNT(product_id) DESC
+    """, [datetime.now().year, datetime.now().month, datetime.now().day]).fetchall()
 
     return {i[0]:i[1] for i in res}
 
