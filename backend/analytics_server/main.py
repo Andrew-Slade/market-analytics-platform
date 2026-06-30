@@ -15,8 +15,11 @@ _DATA_ROOT = "/home/aslade/personal_projects/market-analytics-platform/data/"
 async def highlow():
     pass #TODO return high and low
 
-@app.get("/latest")
+@app.get("/latest_prices")
 async def latest():
+    """
+    View of most recent ticks per symbol
+    """
     pass
 
 @app.get("/quickvwap")
@@ -41,12 +44,20 @@ async def vwap(symbol: str):
     """
     pass
 
+@app.post("/returns")
+async def returns():
+    "price change between multiple points, log is preferred, resample "
+    pass
+
+
 @app.post("/volatility")
 async def volatility():
+    "Std deviation of returns and how far outside of that we are"
     pass
 
 @app.post("/correlation")
 async def corr():
+    #correlation matrix?, probably need multiple windows here to get accurately. read into dataframe and resample. Uses returns
     pass
 
 @app.get("/dataset")
