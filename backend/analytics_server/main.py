@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 import duckdb
 from datetime import datetime
+import yaml
+
+__sub_file = "backend/config/subscription.yml"
 
 app = FastAPI()
 conn = duckdb.connect()
@@ -46,6 +49,9 @@ async def corr():
 
 @app.get("/dataset")
 async def dataset():
+    """
+    View overall symbols and their row counts
+    """
     reload_view()
     res =  conn.sql(f"""
     SELECT distinct product_id, count(product_id) as row_count
@@ -54,3 +60,35 @@ async def dataset():
     """).fetchall()
 
     return {i[0]:i[1] for i in res}
+
+@app.post("/subscribe")
+async def subscribe(tickers: list[str]):
+    "Alter subscriptions"
+    try:
+        with open(__sub_file) as f:
+            conf = yaml.safe_load(f)
+        for i in tickers:
+            conf["tickers"].append(i)
+        conf["tickers"] = list(set(conf["tickers"]))
+        with open(__sub_file, "w") as w:
+            yaml.dump(conf, w)
+        f.close()
+    except Exception as e:
+        return e
+    return conf
+
+@app.post("/unsubscribe")
+async def unsubscribe(tickers: list[str]):
+    "Alter subscriptions"
+    try:
+        with open(__sub_file) as f:
+            conf = yaml.safe_load(f)
+        for i in tickers:
+            conf["tickers"].remove(i)
+        conf["tickers"] = list(set(conf["tickers"]))
+        with open(__sub_file, "w") as w:
+            yaml.dump(conf, w)
+        f.close()
+    except Exception as e:
+        return e
+    return conf
