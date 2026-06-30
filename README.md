@@ -5,13 +5,21 @@
 > This platform demonstrates an end-to-end analytics workflow that runs seamlessly on a local developer laptop or in the cloud. We replace heavy, JVM-based infrastructure with DuckDB and Parquet, significantly reducing query latency while maintaining a footprint much lighter than traditional Spark or Hadoop clusters. This modular design enables true storage-compute separation, as DuckDB is capable of querying remote object storage natively.
 
 ## Quick Start
-    0. Clone this project locally, run `pip install -r requirements.txt`
+    0. Clone this project locally, run *pip install -r requirements.txt*
     1. Install Docker Compose, make sure it is enabled with systemd or similar.
-    2. Start kafka via the `kafka-up` script
-    3. Add the tickers of interest to `config/subscriptions.yml`
-    4. In one terminal run the `run-ingestion` script
-    5. Kafka can be viewed graphically (Kafka UI) at `localhost:8080`
-    6. W.I.P
+    2. Start kafka via the *kafka-up* script
+    3. Add the tickers of interest to *config/subscriptions.yml*
+    4. In one terminal run the *run-ingestion* script
+    5. Kafka can be viewed graphically (Kafka UI) at *localhost:8080*
+    6. In another terminal, run *run-storage-writer*, this is the kafka consumer
+    7. In another terminal, run *run-analytics-server*, and visit *localhost:8000* in your web browser
+    8. See the endpoints listed below in *Endpoint Samples*
+
+### Endpoint samples
+    - https://localhost:8000/quickvwap
+    - http://localhost:8000/returns?symbol=<SYMBOL>
+    - http://localhost:8000/dataset
+    - http://localhost:8000/correlation?symbol1=<SYMBOL>&symbol2=<SYMBOL>
 
 ## Dependencies
     - Docker compose
@@ -56,12 +64,6 @@ Market data api -> Kafka -> Parquet (delta lake) -> DuckDB -> End User
 
 - Analytics:
     - W.I.P
-
-### Endpoint samples
-    - https://localhost:8000/quickvwap
-    - http://localhost:8000/returns?symbol=<SYMBOL>
-    - http://localhost:8000/dataset
-    - http://localhost:8000/correlation?symbol1=<SYMBOL>&symbol2=<SYMBOL>
 
 ### Scaling Strategy
     - Ingestion: Containerization and deployment of multiple instances of the `subscription_service`, dividing the load up via `subscriptions.yml`, where hotter symbols have a sparser machine. Kafka can be sharded across multiple machines.
