@@ -2,8 +2,6 @@ from fastapi import FastAPI
 import duckdb
 from datetime import datetime
 import yaml
-from deltalake import DeltaTable
-import os
 
 __sub_file = "backend/config/subscription.yml"
 
