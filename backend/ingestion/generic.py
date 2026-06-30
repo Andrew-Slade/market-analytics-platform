@@ -45,17 +45,15 @@ class GenericIngestor:
     
     async def consume_api(self) -> None:
         backoff: int = 1
-        #convert to coinbase
-        channels = ["level2", "heartbeat"]
-        #ticker entry and L2 for the symbol
         subscription_message = json.dumps({
             "type": "subscribe",
-            'product_ids': [self.symbol],
-            "channels": [channels,
-            {
-              "name": "ticker",
-              "product_ids": [self.symbol]
-            }]
+            "product_ids": [self.symbol],
+            "channels": [
+                {
+                    "name": "ticker",
+                    "product_ids": [self.symbol]
+                }
+            ]
         })
         while True:
             self.logger.debug(f"Attempting to connect to {self.url} for {self.symbol}")

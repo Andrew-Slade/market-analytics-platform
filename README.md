@@ -59,7 +59,7 @@ Market data api -> Kafka -> Parquet (delta lake) -> DuckDB -> End User
 
 ### Scaling Strategy
     - Ingestion: Containerization and deployment of multiple instances of the `subscription_service`, dividing the load up via `subscriptions.yml`, where hotter symbols have a sparser machine. Kafka can be sharded across multiple machines.
-    - Storage: Parquet files partitioned by date and ticker, stored in a dedicated storage machine (ideally GCS or S3).
+    - Storage: Parquet files partitioned by date and ticker, stored in a dedicated storage machine (ideally GCS or S3). Predicate pushdown helps mitigate the growing complexity.
     - Analytics: DuckDB should run separately of the parquet storage, on a much higher memory and compute machine. It can query the parquet files remotely.
 
 ### Notes
