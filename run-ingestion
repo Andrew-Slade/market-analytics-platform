@@ -1,7 +1,0 @@
-#!/bin/bash
-clear
-source venv
-./clean-logs
-mypy .
-ruff check --fix .
-python backend/ingestion/subscription_service.py -v

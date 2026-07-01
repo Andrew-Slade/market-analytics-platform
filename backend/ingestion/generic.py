@@ -5,17 +5,19 @@ import sys
 import signal
 import asyncio
 import json
+from tabnanny import verbose
 import typing as tp
 import warnings
 import websockets
 import yaml
+from pathlib import Path
 
 from confluent_kafka import Producer, KafkaError, Message
 
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="yfinance")
 
-__log_dir: str = "backend/logs"
-__kafka_conf: str = "backend/config/kafka.yml"
+__log_dir: str = "/app/backend/logs"
+__kafka_conf: str = "/app/backend/config/kafka.yml"
 
 class GenericIngestor:
     def __init__(self, symbol: str, logger: logging.Logger, kafka_conf: dict, url: str) -> None:
@@ -26,7 +28,10 @@ class GenericIngestor:
         self.kafka_conf: dict = kafka_conf["write"]
         self.producer = Producer(self.kafka_conf)
         self.logger.info(f"Initialized ingestor for {self.symbol} on {self.kafka_conf['bootstrap.servers']}")
-        self.dlq = open(f"backend/dead_letters/producer_{self.symbol}_{datetime.now().strftime("%Y%m%d")}.dlq", "a+")
+        self.dlq = open(
+            f"/app/backend/dead_letters/producer_{self.symbol}_{datetime.now():%Y%m%d}.dlq",
+            "a+"
+        )
 
     def __enter__(self) -> tp.Any:
         return self
@@ -101,15 +106,20 @@ def arg_parser() -> argparse.Namespace:
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args()
 
-def setup_logging(ticker: str, verbose: bool) -> logging.Logger:
-        log = f"{__log_dir}/{ticker}_{datetime.now().strftime("%Y-%m-%d")}.log"
-        logger = logging.getLogger(__name__)
-        logger.propagate = False
-        file_handler = logging.FileHandler(log)
-        logging.basicConfig(level=logging.INFO if not verbose else logging.DEBUG)
-        logger.addHandler(file_handler)
-        logger.info(f"Set logging destination: {log}, logging mode {logging.getLevelName(logger.getEffectiveLevel())}")
-        return logger
+def setup_file_logger(name: str, logfile: str, verbose: bool = False) -> logging.Logger:
+    Path(logfile).parent.mkdir(parents=True, exist_ok=True)
+
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=[
+            logging.FileHandler(logfile),
+            logging.StreamHandler()
+        ],
+        force=True
+    )
+
+    return logging.getLogger(name)
 
 async def run_ingestor(args: argparse.Namespace, logger: logging.Logger, kconfig: dict) -> None:
         with GenericIngestor(args.ticker, logger, kconfig, args.url) as g:
@@ -119,7 +129,11 @@ if __name__=="__main__":
     args: argparse.Namespace = arg_parser()
     with open(__kafka_conf) as kfile:
         kconfig = yaml.safe_load(kfile)
-    logger: logging.Logger = setup_logging(args.ticker, args.verbose)
+    logger: logging.Logger = setup_file_logger(
+        f"ingestor-{args.ticker}",
+        f"/app/backend/logs/{args.ticker}_{datetime.now():%Y-%m-%d}.log",
+        verbose=args.verbose
+    )
     logger.info(f"Starting up {args.ticker}")
     try:
         signal.signal(signal.SIGTERM, handle_sigterm)

@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 import duckdb
 from datetime import datetime, timedelta
@@ -5,8 +6,8 @@ import yaml
 import re
 from functools import lru_cache
 
-__SUB_FILE = "backend/config/subscription.yml"
-__DATA_ROOT = "/home/aslade/personal_projects/market-analytics-platform/data/"
+__SUB_FILE = "/app/backend/config/subscription.yml"
+__DATA_ROOT = DATA_DIR = os.getenv("DATA_DIRECTORY", "/app/data")
 
 app = FastAPI()
 conn = duckdb.connect()

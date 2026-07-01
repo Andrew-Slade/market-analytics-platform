@@ -9,13 +9,14 @@ import typing as tp
 import pyarrow as pa
 import pandas as pd
 import deltalake
+from pathlib import Path
 
 import argparse
 from confluent_kafka import Consumer, Message
 
-__config_location: str = "backend/config/logging.yml"
-__log_location: str = "backend/logs/parquetizer.log"
-__kafka_conf: str = "backend/config/kafka.yml"
+__config_location: str = "/app/backend/config/logging.yml"
+__log_location: str = "/app/backend/logs/parquetizer.log"
+__kafka_conf: str = "/app/backend/config/kafka.yml"
 
 class ParquetStreamer:
     def __init__(self, logger: logging.Logger, kafka_config: dict, date:str) -> None:
@@ -27,7 +28,7 @@ class ParquetStreamer:
         self.buffer_size = 100
         self.executedate = datetime.strptime(date, "%Y%m%d")
         self.topic = f"market-data-{self.executedate.strftime("%Y%m%d")}"
-        self.dlq = f"backend/dead_letters/consumer_{datetime.now().strftime("%Y%m%d")}"
+        self.dlq = f"/app/backend/dead_letters/consumer_{datetime.now().strftime("%Y%m%d")}"
         self.mschema = pa.schema([
             ("type", pa.string()),
             ("sequence", pa.int64()),
@@ -98,8 +99,7 @@ class ParquetStreamer:
                         message_queue.clear()
 
     def create_parquet_stream(self, key: str) -> str:
-        #TODO, delta lake implementation
-        partition = f"data/year={self.executedate.strftime('%Y')}/month={self.executedate.strftime('%m')}/day={self.executedate.strftime('%d')}"
+        partition = f"/app/data/year={self.executedate.strftime('%Y')}/month={self.executedate.strftime('%m')}/day={self.executedate.strftime('%d')}"
         os.makedirs(partition, exist_ok=True)
         self.parquet_tables[key] = f"{partition}/{key}"
         return key
@@ -132,7 +132,7 @@ class ParquetStreamer:
             try:
                 table = pa.Table.from_pandas(df, schema=self.mschema)
             except Exception:
-                df.to_csv(f"{self.dlq}_{key}_{datetime.now().strftime("%Y%m%d_%H%M%S%f")}.dlq", index=False) #if we cant get the dataframe nicely into the pyarrow schema, dead letter queue it
+                df.to_csv(f"{self.dlq}_{key}_{datetime.now().strftime('%Y%m%d_%H%M%S%f')}.dlq", index=False) #if we cant get the dataframe nicely into the pyarrow schema, dead letter queue it
             else:
                 try:
                     deltalake.write_deltalake(parquet_tables[key], table, mode="append")
@@ -146,23 +146,20 @@ class ParquetStreamer:
         self.stream_from_kafka()
 
 
-def setup_logging(verbose: bool) -> logging.Logger:
-    try:
-        print("Reading config")
-        with open(__config_location) as lfile:
-            log_conf = yaml.safe_load(lfile)
-            print(f"Initialized config: {log_conf} from \n{__config_location}")
+def setup_file_logger(name: str, logfile: str, verbose: bool = False) -> logging.Logger:
+    Path(__log_location).parent.mkdir(parents=True, exist_ok=True)
 
-        logger = logging.getLogger(__name__)
-        file_handler = logging.FileHandler(__log_location)
-        logging.basicConfig(level=logging.INFO if not verbose else logging.DEBUG)
-        logger.addHandler(file_handler)
-        logger.info(f"Set logging destination: {__log_location}, logging mode {logging.getLevelName(logger.getEffectiveLevel())}")
-    except Exception:
-        print("Logging file format corrupted")
-        exit(1)
-    else:
-        return logger
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=[
+            logging.FileHandler(__log_location),
+            logging.StreamHandler()
+        ],
+        force=True
+    )
+    return logging.getLogger(name)
+
 
 def arg_parser() -> argparse.Namespace:
     p = argparse.ArgumentParser()
@@ -174,6 +171,10 @@ if __name__ == "__main__":
     with open(__kafka_conf) as kfile:
         kconfig = yaml.safe_load(kfile)
     args = arg_parser()
-    logger = setup_logging(verbose=args.verbose)
+    logger: logging.Logger = setup_file_logger(
+    f"parquetizer",
+    f"/app/backend/logs/parquetizer_{datetime.now():%Y-%m-%d}.log",
+    verbose=args.verbose
+    )
     with ParquetStreamer(logger=logger, kafka_config=kconfig, date=args.date) as ps:
         ps.run()

@@ -1,7 +1,0 @@
-#!/bin/bash
-clear
-source venv
-./clean-logs
-mypy .
-ruff check --fix .
-python backend/storage/parquetizer.py -v -d $(date +%Y%m%d)

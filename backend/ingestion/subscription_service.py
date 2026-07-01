@@ -7,11 +7,12 @@ import subprocess
 import time
 from datetime import timedelta
 import typing as tp
+from pathlib import Path
 
 
-__log_location: str = f"backend/logs/subscriptions_{datetime.now().strftime("%Y-%m-%d")}.log"
-__config_location: str = "backend/config/logging.yml"
-__subscription_config_file: str = "backend/config/subscription.yml"
+__log_location: str = f"/app/backend/logs/subscriptions_{datetime.now().strftime("%Y-%m-%d")}.log"
+__config_location: str = "/app/backend/config/logging.yml"
+__subscription_config_file: str = "/app/backend/config/subscription.yml"
 
 class Subscribe:
     def __init__(self, logger: logging.Logger, config: str, url: str = "") -> None:
@@ -106,23 +107,19 @@ class Subscribe:
                 self.active_subscriptions[i].wait()
             del self.active_subscriptions[i]
             
-def setup_logging(verbose: bool) -> logging.Logger:
-    try:
-        print("Reading config")
-        with open(__config_location) as lfile:
-            log_conf = yaml.safe_load(lfile)
-            print(f"Initialized config: {log_conf} from \n{__config_location}")
+def setup_file_logger(name: str, logfile: str, verbose: bool = False) -> logging.Logger:
+    Path(__log_location).parent.mkdir(parents=True, exist_ok=True)
 
-        logger = logging.getLogger(__name__)
-        file_handler = logging.FileHandler(__log_location)
-        logging.basicConfig(level=logging.INFO if not verbose else logging.DEBUG)
-        logger.addHandler(file_handler)
-        logger.info(f"Set logging destination: {__log_location}, logging mode {logging.getLevelName(logger.getEffectiveLevel())}")
-    except Exception:
-        print("Logging file format corrupted")
-        exit(1)
-    else:
-        return logger
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=[
+            logging.FileHandler(__log_location),
+            logging.StreamHandler()
+        ],
+        force=True
+    )
+    return logging.getLogger(name)
 
 def arg_parser() -> argparse.Namespace:
     p = argparse.ArgumentParser()
@@ -131,7 +128,11 @@ def arg_parser() -> argparse.Namespace:
 
 if __name__=="__main__":
     args: argparse.Namespace = arg_parser()
-    logger = setup_logging(args.verbose)
+    logger: logging.Logger =  setup_file_logger(
+        "subscription",
+        __log_location,
+        verbose=args.verbose
+    )
     try:
         s : Subscribe = Subscribe(logger, __subscription_config_file)
     except Exception as e:

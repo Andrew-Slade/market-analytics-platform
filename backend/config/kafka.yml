@@ -1,7 +1,7 @@
 write:
-  bootstrap.servers: localhost:9093
+  bootstrap.servers: kafka:9092
 read:
-  bootstrap.servers: localhost:9093
+  bootstrap.servers: kafka:9092
   group.id: parquetizer-group
   auto.offset.reset: earliest
   client.rack: ignore
