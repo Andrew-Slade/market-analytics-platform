@@ -5,7 +5,6 @@ import sys
 import signal
 import asyncio
 import json
-from tabnanny import verbose
 import typing as tp
 import warnings
 import websockets

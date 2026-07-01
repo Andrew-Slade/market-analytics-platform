@@ -172,7 +172,7 @@ if __name__ == "__main__":
         kconfig = yaml.safe_load(kfile)
     args = arg_parser()
     logger: logging.Logger = setup_file_logger(
-    f"parquetizer",
+    "parquetizer",
     f"/app/backend/logs/parquetizer_{datetime.now():%Y-%m-%d}.log",
     verbose=args.verbose
     )
