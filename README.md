@@ -38,7 +38,7 @@ Market data api -> Kafka -> Parquet (delta lake) -> DuckDB -> API -> End User
 
 ### Architecture
 - market-analytics-platform/
-    -Docker
+    - Docker
         - ingestion/
             - market feeds
         - storage/
