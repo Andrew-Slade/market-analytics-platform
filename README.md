@@ -68,7 +68,21 @@ Market data api -> Kafka -> Parquet (delta lake) -> DuckDB -> API -> End User
     - Stores it as parquet for fast DuckDB OLAP workloads
 
 - Analytics:
-    - W.I.P
+    - Returns are the resampled log returns using last price per minute
+        - \> 0 : upward movement of the price
+        - < 0 : downward movement of the price
+    - Volatility finds the standard deviation of log returns over a period, representing volatility
+        - 0.0005 - 0.003 : quiet
+        - 0.003 - 0.01 : typical conditions
+        - 0.01 - 0.02 : active market 
+        - 0.02 - 0.05 : highly volatile
+        - \> 0.05 : extreme volatility
+    - Correlation uses returns to find symbols that move similarly
+        - 1 : assets move together perfectly
+        - \> 0.5 : assets move together typically
+        - 0 : no relationship
+        - < -0.5  : assets move opposite of each other typically
+        - -1 : assets are perfect opposites
 
 ### Scaling Strategy
     - Ingestion: Containerization and deployment of multiple instances of the `subscription_service`, dividing the load up via `subscriptions.yml`, where higher-volume symbols can be assigned dedicated ingestion workers. Kafka can be scaled to a multi-broker cluster in future deployments.
