@@ -5,13 +5,13 @@ import yaml
 import re
 from functools import lru_cache
 
-__sub_file = "backend/config/subscription.yml"
+__SUB_FILE = "backend/config/subscription.yml"
+__DATA_ROOT = "/home/aslade/personal_projects/market-analytics-platform/data/"
 
 app = FastAPI()
 conn = duckdb.connect()
 
 conn.execute("INSTALL delta; LOAD delta;")
-_DATA_ROOT = "/home/aslade/personal_projects/market-analytics-platform/data/"
 
 @app.get("/high_low")
 async def highlow(symbol:str, timeframe: str = "day"):
@@ -36,7 +36,7 @@ async def highlow(symbol:str, timeframe: str = "day"):
                 ? as timeframe,
                 MIN(price) as low,
                 MAX(price) as high
-            FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
+            FROM read_parquet('{__DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
             WHERE year = ? AND month = ? AND day = ?
             AND product_id = ?
             AND time BETWEEN ? AND ?
@@ -60,7 +60,7 @@ async def latest(symbol: str,limit: int = 10):
                 price,
                 recieved, 
                 ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY time DESC) AS rn
-            FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
+            FROM read_parquet('{__DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
             WHERE year = ?
             AND month = ?
             AND day = ?
@@ -88,7 +88,7 @@ async def marketview():
         product_id, 
         SUM(last_size) as cumulative_volume,
         SUM(price * last_size) / SUM(last_size) as vwap
-    FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=True)
+    FROM read_parquet('{__DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=True)
     WHERE year = ? 
     AND month = ? 
     AND day = ? 
@@ -124,7 +124,7 @@ async def vwap(symbol: str, timeframe: str = "day"):
                 product_id,
                 ? as timeframe,
                 SUM(price * last_size) / SUM(last_size) as vwap
-            FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
+            FROM read_parquet('{__DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
             WHERE year = ? AND month = ? AND day = ?
             AND product_id = ?
             AND time BETWEEN ? AND ?
@@ -144,7 +144,7 @@ async def returns(symbol):
             SELECT 
                 date_trunc('minute', time) AS bucket,
                 arg_max(price, time) AS price
-            FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
+            FROM read_parquet('{__DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
             WHERE year = ?
             AND month = ?
             AND day = ?
@@ -164,17 +164,46 @@ async def returns(symbol):
         return {"ERROR": "INVALID SYMBOL"}
 
 @lru_cache(maxsize=128)
-@app.post("/volatility")
-async def volatility():
+@app.get("/volatility")
+async def volatility(symbol: str):
     "Std deviation of returns and how far outside of that we are"
-    pass
+    symbols = [datetime.now().year, datetime.now().month, datetime.now().day, symbol, symbol]
+    if re.fullmatch(r"[a-zA-Z0-9-]+", symbol):
+        res =  conn.execute(f"""
+        WITH resampled AS (
+            SELECT 
+                date_trunc('minute', time) AS bucket,
+                arg_max(price, time) AS price
+            FROM read_parquet('{__DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=true)
+            WHERE year = ?
+            AND month = ?
+            AND day = ?
+            AND product_id = ?
+            GROUP BY bucket
+        ),
+        returns AS (
+            SELECT 
+                bucket,
+                price,
+                LN(price / LAG(price) OVER (ORDER BY bucket)) AS log_returns
+            FROM resampled
+        )
+        SELECT 
+            ? as product_id,
+            STDDEV(log_returns) as volatility
+        FROM returns
+        WHERE log_returns IS NOT NULL
+        """, symbols).fetchdf().dropna()
+        return res.to_dict(orient="records")
+    else:
+        return {"ERROR": "INVALID SYMBOL"}
 
 @lru_cache(maxsize=128)
 @app.get("/correlation")
-async def corr(symbol1, symbol2):
-    query  =[datetime.now().year, datetime.now().month, datetime.now().day, symbol1, symbol2, symbol1, symbol2]
+async def corr(symbol1: str, symbol2: str):
+    query  =[datetime.now().year, datetime.now().month, datetime.now().day, symbol1, symbol2, symbol1, symbol2, symbol1, symbol2]
     for i in query[3:]:
-        if not re.fullmatch(r"[a-zA-Z0-9-]+", i):
+        if not isinstance(i, str) or not re.fullmatch(r"[a-zA-Z0-9-]+", i):
             return  {"ERROR": "INVALID SYMBOL"}
 
     res =  conn.execute(f"""
@@ -183,7 +212,7 @@ async def corr(symbol1, symbol2):
             product_id,
             date_trunc('minute', time) as bucket,
             arg_max(price, time) as price
-        FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=True)
+        FROM read_parquet('{__DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=True)
         WHERE year = ? AND month = ? AND day = ?
         AND product_id IN (?,?)
         GROUP BY product_id, bucket
@@ -196,6 +225,8 @@ async def corr(symbol1, symbol2):
         FROM base
     )
     SELECT
+        ? as product_id_a,
+        ? as product_id_b,
         corr(a.ret, b.ret) AS correlation
     FROM rets a
     JOIN rets b
@@ -214,7 +245,7 @@ async def dataset():
     SELECT 
         distinct product_id, 
         COUNT(product_id) AS row_count
-    FROM read_parquet('{_DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=True)
+    FROM read_parquet('{__DATA_ROOT}/**/*.snappy.parquet', hive_partitioning=True)
     WHERE year = ? 
     AND month = ? 
     AND day = ? 
@@ -227,12 +258,12 @@ async def dataset():
 @app.post("/subscribe")
 async def subscribe(tickers: list[str]):
     "Alter subscriptions"
-    with open(__sub_file) as f:
+    with open(__SUB_FILE) as f:
         conf = yaml.safe_load(f)
     for i in tickers:
         conf["tickers"].append(str(i))
     conf["tickers"] = list(set(conf["tickers"]))
-    with open(__sub_file, "w") as w:
+    with open(__SUB_FILE, "w") as w:
         yaml.dump(conf, w)
     f.close()
     return conf
@@ -240,12 +271,12 @@ async def subscribe(tickers: list[str]):
 @app.post("/unsubscribe")
 async def unsubscribe(tickers: list[str]):
     "Alter subscriptions"
-    with open(__sub_file) as f:
+    with open(__SUB_FILE) as f:
         conf = yaml.safe_load(f)
     for i in tickers:
         conf["tickers"].remove(str(i))
     conf["tickers"] = list(set(conf["tickers"]))
-    with open(__sub_file, "w") as w:
+    with open(__SUB_FILE, "w") as w:
         yaml.dump(conf, w)
     f.close()
     return conf
