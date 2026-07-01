@@ -1,0 +1,11 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+data/
+backend/logs/
+backend/dead_letters/
+.DS_Store
