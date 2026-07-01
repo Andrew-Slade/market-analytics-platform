@@ -21,7 +21,7 @@ class Subscribe:
             self.url = self.__get_url()
         self.__get_subscriptions()
         self.active_subscriptions: dict = defaultdict()
-        self.polling_period: int = 30 #in seconds
+        self.polling_period: int = 60 #in seconds
 
     def __get_url(self):
         with open(self.config_location) as f: #one time read of url for subscription service endpoint
