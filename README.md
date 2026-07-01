@@ -2,52 +2,57 @@
 
 ## Why?
 
-> This platform demonstrates an end-to-end analytics workflow that runs seamlessly on a local developer laptop or in the cloud. We replace heavy, JVM-based infrastructure with DuckDB and Parquet, significantly reducing query latency while maintaining a footprint much lighter than traditional Spark or Hadoop clusters. This modular design enables true storage-compute separation, as DuckDB is capable of querying remote object storage natively.
+> This platform demonstrates an end-to-end analytics workflow that runs locally via Docker or can be deployed in a cloud environment with minimal changes. We replace heavy, JVM-based infrastructure with DuckDB and Parquet, significantly reducing query latency while maintaining a footprint much lighter than traditional Spark or Hadoop clusters. The system uses a modular, containerized architecture with Docker Compose, enabling easy setup and reproducibility. Data is stored in partitioned Parquet files on a shared volume, allowing DuckDB to perform fast analytical queries directly on columnar data without a separate database layer. I detail scaling stratgies below, for those interested.
 
 ## Quick Start
-    0. Clone this project locally, run *pip install -r requirements.txt*
-    1. Install Docker Compose, make sure it is enabled with systemd or similar.
-    2. Start kafka via the *kafka-up* script
-    3. Add the tickers of interest to *config/subscriptions.yml*
-    4. In one terminal run the *run-ingestion* script
-    5. Kafka can be viewed graphically (Kafka UI) at *localhost:8080*
-    6. In another terminal, run *run-storage-writer*, this is the kafka consumer
-    7. In another terminal, run *run-analytics-server*, and visit *localhost:8000* in your web browser
-    8. See the endpoints listed below in *Endpoint Samples*
+    0. Clone this project locally
+    1. Install *Docker Compose*, *Docker Buildx*, make sure it is enabled with systemd or similar.
+    2. run *./project-up*
+    3. See endpoints below
 
 ### Endpoint samples
-    - https://localhost:8000/quickvwap
+    - http://localhost:8000/docs (for an overview via OpenAPI)
+    - http://localhost:8000/docs
+    - http://localhost:8000/high_low
+    - http://localhost:8000/latest_prices
+    - http://localhost:8000/quickvwap
+    - http://localhost:8000/vwap
     - http://localhost:8000/returns?symbol=<SYMBOL>
-    - http://localhost:8000/dataset
+    - http://localhost:8000/volatility?symbol=<SYMBOL>
     - http://localhost:8000/correlation?symbol1=<SYMBOL>&symbol2=<SYMBOL>
+    - http://localhost:8000/dataset
+    - http://localhost:8000/subscribe
+    - http://localhost:8000/unsubscribe
 
 ## Dependencies
     - Docker compose
-    - See `requirements.txt` for python requirements
+    - Docker Buildx
+    - See `requirements.txt` for python requirements, they are installed in the container by the Dockerfile
 
 ## High level architecture
 
-Market data api -> Kafka -> Parquet (delta lake) -> DuckDB -> End User
+Market data api -> Kafka -> Parquet (delta lake) -> DuckDB -> API -> End User
 
 
 ## Technical details
 
 ### Architecture
 - market-analytics-platform/
-    - ingestion/
-        - market feeds
-    - storage/
-        - delta lake
-            - parquet
-    - analytics/
-        - duckdb
-    - logs/
-        - live logs from all python aspects
+    -Docker
+        - ingestion/
+            - market feeds
+        - storage/
+            - deltalake
+                - parquet
+        - analytics/
+            - duckdb
+        - logs/
+            - live logs from all python aspects
 
 ### Software Solutions
-- Docker: containerization of Kafka for ease of deployment/use.
+- Docker: containerization of Kafka and the entire project for ease of deployment/use.
 - Apache Kafka: Handles streaming data and retention at scale.
-- Delta lake: allows for real time appending to Parquet files and real time reading with Duckdb
+- Deltalake: allows for real time appending to Parquet files and real time reading with Duckdb
 - Parquet: Facilitates DuckDB via fast columnar storage.
 - Duckdb: Columnar analytics db-- lighter than spark, cloud native, no jvm management.
 
@@ -66,9 +71,9 @@ Market data api -> Kafka -> Parquet (delta lake) -> DuckDB -> End User
     - W.I.P
 
 ### Scaling Strategy
-    - Ingestion: Containerization and deployment of multiple instances of the `subscription_service`, dividing the load up via `subscriptions.yml`, where hotter symbols have a sparser machine. Kafka can be sharded across multiple machines.
+    - Ingestion: Containerization and deployment of multiple instances of the `subscription_service`, dividing the load up via `subscriptions.yml`, where higher-volume symbols can be assigned dedicated ingestion workers. Kafka can be scaled to a multi-broker cluster in future deployments.
     - Storage: Parquet files partitioned by date and ticker, stored in a dedicated storage machine (ideally GCS or S3). Predicate pushdown helps mitigate the growing complexity.
-    - Analytics: DuckDB should run separately of the parquet storage, on a much higher memory and compute machine. It can query the parquet files remotely.
+    - Analytics: DuckDB can be deployed separately from storage in larger-scale systems, querying Parquet data directly from shared or remote storage.
 
 ### Notes
     - `parquet-tools` can be used to inspect the parquet files generated by this process via `parquet-tools show <file>`
