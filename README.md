@@ -82,7 +82,9 @@
         - 0 : no relationship
         - < -0.5  : assets move opposite of each other typically
         - -1 : assets are perfect opposites
-
+- Front End:
+    - W.I.P
+    
 ### Scaling Strategy
 - Ingestion: Containerization and deployment of multiple instances of the `subscription_service`, dividing the load up via `subscriptions.yml`, where higher-volume symbols can be assigned dedicated ingestion workers. Kafka can be scaled to a multi-broker cluster in future deployments.
 - Storage: Parquet files partitioned by date and ticker, stored in a dedicated storage machine (ideally GCS or S3). Predicate pushdown helps mitigate the growing complexity.
