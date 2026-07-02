@@ -6,9 +6,14 @@
 
 ## Quick Start
 0. Clone this project locally
-1. Install `Docker Compose`, `Docker Buildx`, make sure it is enabled with systemd or similar.
+1. Install dependencies listed under `Dependencies` below
 2. run `./project-up`
 3. See endpoints below
+
+## Dependencies
+- Docker
+- Docker compose
+- Docker Buildx
 
 ### Endpoint samples
 - http://localhost:8000/docs (for an overview via OpenAPI)
@@ -23,15 +28,8 @@
 - http://localhost:8000/subscribe
 - http://localhost:8000/unsubscribe
 
-## Dependencies
-- Docker compose
-- Docker Buildx
-- See `requirements.txt` for python requirements, they are installed in the container by the Dockerfile
-
 ## High level architecture
-
 > Market data api -> Kafka -> Parquet (deltalake) -> DuckDB -> API -> End User
-
 
 ## Technical details
 
