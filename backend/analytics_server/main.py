@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI
 import duckdb
 from datetime import datetime, timedelta
+import pandas as pd
 import yaml
 import re
 from functools import lru_cache
@@ -14,7 +15,7 @@ conn = duckdb.connect()
 
 conn.execute("INSTALL delta; LOAD delta;")
 
-@app.get("/high_low")
+@app.get("/analytics/high_low")
 async def highlow(symbol:str, timeframe: str = "day"):
     if re.fullmatch(r"[a-zA-Z0-9-]+", symbol):
         end_time = datetime.now()
@@ -47,7 +48,7 @@ async def highlow(symbol:str, timeframe: str = "day"):
     else:
         return {"ERROR": f"INVALID SYMBOL {symbol}"}
 
-@app.get("/latest_prices")
+@app.get("/analytics/latest_prices")
 async def latest(symbol: str,limit: int = 10):
     """
     View of most recent ticks per symbol
@@ -79,7 +80,7 @@ async def latest(symbol: str,limit: int = 10):
     else:
         return {"ERROR": f"INVALID SYMBOL {symbol}"}
 
-@app.get("/quickvwap")
+@app.get("/analytics/quickvwap")
 async def marketview():
     """
     VWAP over all available data for all available symbols for this date
@@ -100,7 +101,7 @@ async def marketview():
         records[i[0]] = {"cumulative volume": round(i[1],3), "vwap": round(i[2],2)}
     return records
 
-@app.get("/vwap")
+@app.get("/analytics/vwap")
 async def vwap(symbol: str, timeframe: str = "day"):
     """
     VWAP over a particular symbol with all available data
@@ -136,7 +137,7 @@ async def vwap(symbol: str, timeframe: str = "day"):
         return {"ERROR": f"INVALID SYMBOL {symbol}"}
 
 @lru_cache(maxsize=128)
-@app.get("/returns")
+@app.get("/analytics/returns")
 async def returns(symbol):
     symbols = [datetime.now().year, datetime.now().month, datetime.now().day, symbol]
     if re.fullmatch(r"[a-zA-Z0-9-]+", symbol):
@@ -165,7 +166,7 @@ async def returns(symbol):
         return {"ERROR": "INVALID SYMBOL"}
 
 @lru_cache(maxsize=128)
-@app.get("/volatility")
+@app.get("/analytics/volatility")
 async def volatility(symbol: str):
     "Std deviation of returns and how far outside of that we are"
     symbols = [datetime.now().year, datetime.now().month, datetime.now().day, symbol, symbol]
@@ -200,7 +201,7 @@ async def volatility(symbol: str):
         return {"ERROR": "INVALID SYMBOL"}
 
 @lru_cache(maxsize=128)
-@app.get("/correlation")
+@app.get("/analytics/correlation")
 async def corr(symbol1: str, symbol2: str):
     query  =[datetime.now().year, datetime.now().month, datetime.now().day, symbol1, symbol2, symbol1, symbol2, symbol1, symbol2]
     for i in query[3:]:
@@ -237,7 +238,7 @@ async def corr(symbol1: str, symbol2: str):
     """, query).fetchdf().dropna()
     return res.to_dict(orient="records")
 
-@app.get("/dataset")
+@app.get("/analytics/dataset")
 async def dataset():
     """
     View overall symbols and their row counts
@@ -256,7 +257,8 @@ async def dataset():
 
     return {i[0]:i[1] for i in res}
 
-@app.post("/subscribe")
+
+@app.post("/admin/subscribe")
 async def subscribe(tickers: list[str]):
     "Alter subscriptions"
     with open(__SUB_FILE) as f:
@@ -269,7 +271,7 @@ async def subscribe(tickers: list[str]):
     f.close()
     return conf
 
-@app.post("/unsubscribe")
+@app.post("/admin/unsubscribe")
 async def unsubscribe(tickers: list[str]):
     "Alter subscriptions"
     with open(__SUB_FILE) as f:

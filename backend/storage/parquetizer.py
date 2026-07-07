@@ -19,7 +19,7 @@ __log_location: str = "/app/backend/logs/parquetizer.log"
 __kafka_conf: str = "/app/backend/config/kafka.yml"
 
 class ParquetStreamer:
-    def __init__(self, logger: logging.Logger, kafka_config: dict, date:str) -> None:
+    def __init__(self, logger: logging.Logger, kafka_config: dict, date:str, reloadable: bool) -> None:
         self.logger: logging.Logger = logger
         self.kafka_config: dict = kafka_config["read"]
         self.kafka_config["group.id"] = f"{self.kafka_config.get("group.id", "parquetizer-group")}_{datetime.now().strftime("%Y%m%d%H%M%S")}"
@@ -27,6 +27,7 @@ class ParquetStreamer:
         self.polling_timeout = 1.0
         self.buffer_size = 100
         self.executedate = datetime.strptime(date, "%Y%m%d")
+        self.reloadable = reloadable
         self.topic = f"market-data-{self.executedate.strftime("%Y%m%d")}"
         self.dlq = f"/app/backend/dead_letters/consumer_{datetime.now().strftime("%Y%m%d")}"
         self.mschema = pa.schema([
@@ -99,6 +100,8 @@ class ParquetStreamer:
                         message_queue.clear()
 
     def create_parquet_stream(self, key: str) -> str:
+        if self.reloadable:
+            self.executedate = datetime.now()
         partition = f"/app/data/year={self.executedate.strftime('%Y')}/month={self.executedate.strftime('%m')}/day={self.executedate.strftime('%d')}"
         os.makedirs(partition, exist_ok=True)
         self.parquet_tables[key] = f"{partition}/{key}"
@@ -164,17 +167,21 @@ def setup_file_logger(name: str, logfile: str, verbose: bool = False) -> logging
 def arg_parser() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("-v", "--verbose", help="Enable debugging mode", action="store_true")
-    p.add_argument("-d", "--date", default=datetime.now().strftime("%Y%m%d"), help="Date in YYYYMMDD format")
+    p.add_argument("-d", "--date", default=None, help="Date in YYYYMMDD format")
     return p.parse_args()
 
 if __name__ == "__main__":
     with open(__kafka_conf) as kfile:
         kconfig = yaml.safe_load(kfile)
     args = arg_parser()
+    reloadable = False
+    if args.date is None:
+        args.date = datetime.now().strftime("%Y%m%d")
+        reloadable = True
     logger: logging.Logger = setup_file_logger(
     "parquetizer",
     f"/app/backend/logs/parquetizer_{datetime.now():%Y-%m-%d}.log",
     verbose=args.verbose
     )
-    with ParquetStreamer(logger=logger, kafka_config=kconfig, date=args.date) as ps:
+    with ParquetStreamer(logger=logger, kafka_config=kconfig, date=args.date, reloadable=reloadable) as ps:
         ps.run()

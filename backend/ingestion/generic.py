@@ -72,6 +72,9 @@ class GenericIngestor:
                         response_dict: dict = json.loads(response)
                         if response_dict.get("type") == "ticker":
                             await self.__price_update_handler(response_dict)
+                        else:
+                            self.logger.warning(f"Unexpected message type for {self.symbol}: {response_dict.get('type')}")
+                            continue
             except (websockets.exceptions.ConnectionClosedError, websockets.exceptions.ConnectionClosedOK, Exception) as e:
                 self.logger.error(f"Connection lost for {self.symbol}: {str(e)}  Will Try again in {backoff} seconds")
                 await asyncio.sleep(backoff)

@@ -65,6 +65,17 @@ services:
       - ./data:/app/data
     command: python backend/storage/parquetizer.py -v
 
+  backwards_compress:
+      build: .
+      restart: always
+      depends_on:
+        kafka:
+          condition: service_healthy
+      volumes:
+        - .:/app
+        - ./data:/app/data
+      command: python backend/storage/backwards_compress.py
+
   analytics:
     build: .
     restart: always
