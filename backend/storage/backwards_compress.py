@@ -11,7 +11,6 @@ from typing import Generator, Tuple
 
 import duckdb
 from pathlib import Path
-import deltalake
 import pyarrow as pa
 import os
 
@@ -54,7 +53,7 @@ class BackCompress:
                 shutil.rmtree(f)
                 logger.debug(f"Deleted folder {f}") if logger else None
         logger.info(f"Writing {path}")
-        deltalake.write_deltalake(path, arrow_table)
+        arrow_table.to_parquet(path, compression="snappy")
         logger.info(f"Written {path}")
 
     def read(self, path: str, logger: logging.Logger):

@@ -29,7 +29,7 @@
 - http://localhost:8000/unsubscribe
 
 ## High level architecture
-> Market data api -> Kafka -> Parquet (deltalake) -> DuckDB -> API -> End User
+> Market data api -> Kafka -> Parquet (deltalake) -> Parquet -> DuckDB -> API -> End User
 
 ## Technical details
 
@@ -45,6 +45,8 @@
             - duckdb
         - logs/
             - live logs from all python aspects
+        - dead_letters/
+            - error files from ingestion and storage portions of the architecture
 
 ### Software Solutions
 - Docker: containerization of Kafka and the entire project for ease of deployment/use.
@@ -62,7 +64,8 @@
 - Storage:
     - Scrapes and streams kafka data to file
     - Turns it into a dataframe
-    - Stores it as parquet for fast DuckDB OLAP workloads
+    - Stores it as parquet via delta-rs for fast DuckDB OLAP workloads
+    - Later processes condense fragmented parquet files
 
 - Analytics:
     - Returns are the resampled log returns using last price per minute
