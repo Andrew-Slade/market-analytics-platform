@@ -21,7 +21,7 @@ class BackCompress:
         self.data_path = BASE / "data" / "**" / "*.snappy.parquet"
         self.con = duckdb.connect()
         self.con.execute("INSTALL delta; LOAD delta;")
-        self.query = f"""
+        self.query = """
             SELECT 
                 *
             FROM read_parquet(?, hive_partitioning=true)
@@ -83,7 +83,7 @@ def setup_file_logger(name: str, logfile: str, verbose: bool = False) -> logging
 if __name__ == "__main__":
     while True:
         logger: logging.Logger = setup_file_logger(
-            f"backward_compress",
+            "backward_compress",
             f"/app/backend/logs/backward_compress_{datetime.now():%Y-%m-%d}.log",
             verbose=True
         )

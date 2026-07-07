@@ -2,7 +2,6 @@ import os
 from fastapi import FastAPI
 import duckdb
 from datetime import datetime, timedelta
-import pandas as pd
 import yaml
 import re
 from functools import lru_cache

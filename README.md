@@ -17,14 +17,14 @@
 
 ### Endpoint samples
 - http://localhost:8000/docs (for an overview via OpenAPI)
-- http://localhost:8000/high_low?symbol=<SYMBOL>&timeframe=<TIMEFRAME_(5m,15m,30m,1h,day)>
-- http://localhost:8000/latest_prices?symbol=<SYMBOL>&limit=<NUMBER_OF_RESULTS>
-- http://localhost:8000/quickvwap
-- http://localhost:8000/vwap?symbol=<SYMBOL>&timeframe=<TIMEFRAME_(5m,15m,30m,1h,day)>
-- http://localhost:8000/returns?symbol=<SYMBOL>
-- http://localhost:8000/volatility?symbol=<SYMBOL>
-- http://localhost:8000/correlation?symbol1=<SYMBOL>&symbol2=<SYMBOL>
-- http://localhost:8000/dataset
+- http://localhost:8000/analytics/high_low?symbol=<SYMBOL>&timeframe=<TIMEFRAME_(5m,15m,30m,1h,day)>
+- http://localhost:8000/analytics/latest_prices?symbol=<SYMBOL>&limit=<NUMBER_OF_RESULTS>
+- http://localhost:8000/analytics/quickvwap
+- http://localhost:8000/analytics/vwap?symbol=<SYMBOL>&timeframe=<TIMEFRAME_(5m,15m,30m,1h,day)>
+- http://localhost:8000/analytics/returns?symbol=<SYMBOL>
+- http://localhost:8000/analytics/volatility?symbol=<SYMBOL>
+- http://localhost:8000/analytics/correlation?symbol1=<SYMBOL>&symbol2=<SYMBOL>
+- http://localhost:8000/analytics/dataset
 - http://localhost:8000/subscribe
 - http://localhost:8000/unsubscribe
 
