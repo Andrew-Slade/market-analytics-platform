@@ -55,6 +55,8 @@ class ParquetStreamer:
                 'volume_30d', 'best_bid', 'best_bid_size', 'best_ask', 
                 'best_ask_size', 'last_size'
             ]
+        self.error_count = 0
+        self.total_count = 0
         self.logger.info(f"Initialized ParquetStreamer listening to topic {self.topic} using group id {self.kafka_config['group.id']} with buffer size {self.buffer_size} and polling timeout {self.polling_timeout}")
 
     def __enter__(self) -> tp.Any:
@@ -62,6 +64,9 @@ class ParquetStreamer:
     
     def __exit__(self, exc_type: tp.Any, exc_value: tp.Any, traceback: tp.Any) -> None:
         self.logger.info("Spinning down ParquetStreamer")
+        self.logger.info(f"Total messages processed: {self.total_count}")
+        self.logger.info(f"Error messages: {self.error_count}")
+        self.logger.info(f"Error percentage: {self.error_count / self.total_count * 100 if self.total_count > 0 else 0:.2f}%")
         self.consumer.close()
         for handler in self.logger.handlers:
             handler.flush()
@@ -132,10 +137,12 @@ class ParquetStreamer:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
             df['time'] = pd.to_datetime(df['time'], utc=True).dt.tz_convert('UTC')
             df['Recieved'] = pd.to_datetime(df['Recieved'], format='%d-%m-%Y %H:%M:%S.%f').astype('datetime64[us]')
+            self.total_count += df.shape[0]
             try:
                 table = pa.Table.from_pandas(df, schema=self.mschema)
             except Exception:
                 df.to_csv(f"{self.dlq}_{key}_{datetime.now().strftime('%Y%m%d_%H%M%S%f')}.dlq", index=False) #if we cant get the dataframe nicely into the pyarrow schema, dead letter queue it
+                self.error_count += df.shape[0]
             else:
                 try:
                     deltalake.write_deltalake(parquet_tables[key], table, mode="append")

@@ -31,12 +31,17 @@ class GenericIngestor:
             f"/app/backend/dead_letters/producer_{self.symbol}_{datetime.now():%Y%m%d}.dlq",
             "a+"
         )
+        self.error_count = 0
+        self.full_count = 0
 
     def __enter__(self) -> tp.Any:
         return self
     
     def __exit__(self, exc_type: tp.Any, exc_value: tp.Any, traceback: tp.Any) -> None:
         self.logger.info(f"Spinning down {self.symbol}")
+        self.logger.info(f"Full messages processed: {self.full_count}")
+        self.logger.info(f"Error messages: {self.error_count}")
+        self.logger.info(f"Error percentage: {self.error_count / self.full_count * 100 if self.full_count > 0 else 0:.2f}%")
         for handler in self.logger.handlers:
             handler.flush()
         try:
@@ -88,7 +93,9 @@ class GenericIngestor:
         try:
             self.producer.produce(f'market-data-{datetime.now().strftime("%Y%m%d")}', key=self.symbol, value=json.dumps(message).encode('utf-8'), callback=self.acked)
             self.producer.poll(0)
+            self.full_count += 1
         except Exception:
+            self.error_count += 1
             self.logger.warning(f"Message malformed for {self.symbol}")
             self.dlq.write(f"{message}\n")
 
