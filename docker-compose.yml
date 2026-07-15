@@ -88,7 +88,7 @@ services:
       - .:/app
       - ./data:/app/data
     command: uvicorn backend.analytics_server.main:app --host 0.0.0.0 --port 8000
-
+    
   jupyter:
     build: .
     restart: always
@@ -97,7 +97,7 @@ services:
     volumes:
       - .:/app
       - ./data:/app/data
-    command: start-notebook.sh --NotebookApp.ip='0.0.0.0' --SeverApp.token='' --ServerApp.password=''
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
 
     deploy:
       resources:
