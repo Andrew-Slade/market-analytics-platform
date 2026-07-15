@@ -8,7 +8,7 @@
 0. Clone this project locally
 1. Install dependencies listed under `Dependencies` below
 2. run `./project-up`
-3. See endpoints below or see local_analytics for Jupyter Notebooks
+3. See endpoints below or see `local_analytics` for Jupyter Notebooks
 
 ## Dependencies
 - Docker
