@@ -45,16 +45,28 @@ class BackCompress:
         """
         Removes all fragmented parquet files and writes a single compressed parquet file
         """
+        to_remove = []
         for f in Path(del_path).absolute().iterdir():
+            to_remove.append(f)
+            
+        try:
+            logger.info(f"Writing {path}")
+            arrow_table.to_parquet(path, compression="snappy")
+            logger.info(f"Written {path}")
+        except Exception as e:
+            logger.info(f"Failed with {e}")
+        else:
+            self.safe_delete(to_remove)
+
+
+    def safe_delete(self, files_to_remove: list):
+        for f in files_to_remove:
             if f.is_file() and f.suffix == ".parquet":
-                os.remove(f)
-                logger.info(f"Deleted {f}") if logger else None
+                    os.remove(f)
+                    logger.info(f"Deleted {f}") if logger else None
             else:
                 shutil.rmtree(f)
                 logger.debug(f"Deleted folder {f}") if logger else None
-        logger.info(f"Writing {path}")
-        arrow_table.to_parquet(path, compression="snappy")
-        logger.info(f"Written {path}")
 
     def read(self, path: str, logger: logging.Logger):
         """
@@ -88,9 +100,11 @@ if __name__ == "__main__":
         )
         logger.info("Starting backward compression")
         bk = BackCompress()
+        today = datetime.now().strftime("%Y-%m-%d")
         for year, month, day, symbol in bk.walk_data_dir(logger):
+            dir_date = f"{year}-{month}-{day}"
             logger.debug(f"Checking {year}/{month}/{day}/{symbol}") if logger else None
-            if int(month) != int(datetime.now().strftime("%M")) and int(day) != int(datetime.now().strftime("%d")):
+            if dir_date != today:
                 logger.info(f"Compressing {year}/{month}/{day}/{symbol}")
                 table = bk.read(path=f"/app/data/year={year}/month={month}/day={day}/{symbol}/**/*.snappy.parquet", logger=logger)
                 bk.write(table, f"/app/data/year={year}/month={month}/day={day}/{symbol}/compressed.snappy.parquet", f"/app/data/year={year}/month={month}/day={day}/{symbol}", logger)

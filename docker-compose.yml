@@ -89,6 +89,16 @@ services:
       - ./data:/app/data
     command: uvicorn backend.analytics_server.main:app --host 0.0.0.0 --port 8000
 
+  jupyter:
+    restart: always
+    image: jupyter/datascience-notebook:latest
+    ports:
+      - "127.0.0.1:8888:8888"
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    command: start-notebook.sh --NotebookApp.ip='0.0.0.0' --SeverApp.token='' --ServerApp.password=''
+
     deploy:
       resources:
         limits:
