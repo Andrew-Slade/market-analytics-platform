@@ -49,6 +49,8 @@
             - live logs from all python aspects
         - dead_letters/
             - error files from ingestion and storage portions of the architecture
+        - execution/
+            - W.I.P
 
 ### Software Solutions
 - Docker: containerization of Kafka and the entire project for ease of deployment/use.
