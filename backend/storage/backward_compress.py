@@ -12,6 +12,7 @@ from typing import Generator, Tuple
 import duckdb
 from pathlib import Path
 import pyarrow as pa
+import pyarrow.parquet as pq
 import os
 
 class BackCompress:
@@ -51,10 +52,10 @@ class BackCompress:
             
         try:
             logger.info(f"Writing {path}")
-            arrow_table.to_parquet(path, compression="snappy")
-            logger.info(f"Written {path}")
+            pq.write_table(arrow_table, path)
+            logger.info(f"{path} written")
         except Exception as e:
-            logger.info(f"Failed with {e}")
+            logger.info(f"Failed with {e}, not deleting")
         else:
             self.safe_delete(to_remove)
 
@@ -107,7 +108,7 @@ if __name__ == "__main__":
             if dir_date != today:
                 logger.info(f"Compressing {year}/{month}/{day}/{symbol}")
                 table = bk.read(path=f"/app/data/year={year}/month={month}/day={day}/{symbol}/**/*.snappy.parquet", logger=logger)
-                bk.write(table, f"/app/data/year={year}/month={month}/day={day}/{symbol}/compressed.snappy.parquet", f"/app/data/year={year}/month={month}/day={day}/{symbol}", logger)
+                bk.write(table, f"/app/data/year={year}/month={month}/day={day}/{symbol}/{symbol}.snappy.parquet", f"/app/data/year={year}/month={month}/day={day}/{symbol}", logger)
             else:
                 logger.info(f"Skipping {year}/{month}/{day}/{symbol} because it is the current day")
         time.sleep(60*60*6) #sleep half a day: 60 seconds, 60 min, 6 hours

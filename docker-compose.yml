@@ -74,7 +74,7 @@ services:
       volumes:
         - .:/app
         - ./data:/app/data
-      command: python backend/storage/backwards_compress.py
+      command: python backend/storage/backward_compress.py
 
   analytics:
     build: .
