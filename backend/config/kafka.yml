@@ -6,3 +6,9 @@ read:
   auto.offset.reset: earliest
   client.rack: ignore
   connections.max.idle.ms: 60000
+market-data:
+  bootstrap.servers: kafka:9092
+  group.id: market-data-group
+  auto.offset.reset: latest
+  client.rack: ignore
+  enable.auto.commit: True
